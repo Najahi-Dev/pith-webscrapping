@@ -50,6 +50,7 @@ import {
 import { RecipeModal } from '@/components/recipe-modal';
 import { SiteTypesView } from '@/components/site-types-view';
 import { SiteCrawlDashboard } from '@/components/site-crawl-dashboard';
+import { useToast, useConfirm } from '@/context';
 
 const DEMO_PRESETS = [
   { label: 'E-commerce Catalog', url: 'https://news.ycombinator.com', note: 'Hacker News frontpage' },
@@ -73,6 +74,9 @@ const CLEANING_CONFIGS = [
 ];
 
 export default function StudioPage() {
+  const toast = useToast();
+  const confirm = useConfirm();
+
   // Mode: 'page' (Single URL) or 'site' (Whole Site Crawler)
   const [mode, setMode] = useState<'page' | 'site'>('page');
 
@@ -169,10 +173,14 @@ export default function StudioPage() {
       setStep('checked');
 
       if (res.allowed) {
+        toast.success('Site Analysis Complete', `Scrapability score: ${res.score}/100 • Robots.txt allowed`);
         handleDetectPatterns(url, engineToUse, customHeaders);
+      } else {
+        toast.warning('Robots.txt Restricted', 'Target domain robots.txt disallows automated scraping.');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Inspection failed');
+      toast.error('Analysis Failed', err.message || 'Inspection failed');
     } finally {
       setChecking(false);
     }
@@ -194,10 +202,12 @@ export default function StudioPage() {
 
       if (detRes.categories.length > 0) {
         setSelectedCategoryId(detRes.categories[0].id);
+        toast.info('Patterns Detected', `Found ${detRes.categories.length} data patterns on page.`);
       }
       setStep('detected');
     } catch (err: any) {
       setErrorMessage(err.message || 'Data detection failed');
+      toast.error('Detection Failed', err.message || 'Data detection failed');
     } finally {
       setDetecting(false);
     }
@@ -209,6 +219,7 @@ export default function StudioPage() {
     setRunningJob(true);
     setStep('running');
     setErrorMessage(null);
+    toast.info('Extraction Started', `Scraping structured dataset from ${currentUrl}...`);
 
     const customHeaders = parseHeaders();
 
@@ -243,8 +254,10 @@ export default function StudioPage() {
 
       setJobResult(completedJob);
       setStep('results');
+      toast.success('Extraction Complete', `Extracted ${completedJob.row_count || completedJob.results?.length || 0} rows successfully!`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Job execution failed');
+      toast.error('Extraction Failed', err.message || 'Job execution failed');
       setStep('detected');
     } finally {
       setRunningJob(false);
@@ -254,6 +267,7 @@ export default function StudioPage() {
   const handleExport = async (format: 'csv' | 'json' | 'xlsx') => {
     if (!jobResult) return;
     try {
+      toast.info('Export Started', `Downloading dataset as ${format.toUpperCase()}...`);
       const data = await pithApi.exportJob(jobResult.id, format, true);
       const mime =
         format === 'csv'
@@ -269,7 +283,7 @@ export default function StudioPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+      toast.error('Export Failed', err.message || 'Could not export dataset');
     }
   };
 
@@ -283,6 +297,7 @@ export default function StudioPage() {
     setSiteStep('discovering');
     setSiteError(null);
     setSiteData(null);
+    toast.info('Discovery Initiated', `Exploring sitemaps and links for ${target}...`);
 
     try {
       const res = await pithApi.discoverSite({
@@ -304,8 +319,10 @@ export default function StudioPage() {
             setSiteDiscovering(false);
             if (site.status === 'failed') {
               setSiteError(site.error_message || 'Discovery encountered errors');
+              toast.error('Discovery Failed', site.error_message || 'Discovery encountered errors');
             } else {
               setSiteStep('discovered');
+              toast.success('Site Discovery Complete', `Discovered ${site.page_types?.length || 0} templates across ${site.page_count || 0} pages.`);
             }
           }
         } catch (e) {
@@ -314,6 +331,7 @@ export default function StudioPage() {
       }, 1500);
     } catch (err: any) {
       setSiteError(err.message || 'Failed to start site discovery');
+      toast.error('Discovery Failed', err.message || 'Failed to start site discovery');
       setSiteDiscovering(false);
       setSiteStep('input');
     }
@@ -328,7 +346,7 @@ export default function StudioPage() {
         page_types: siteData.page_types.map((pt) => (pt.id === typeId ? { ...pt, ...updatedType } : pt)),
       });
     } catch (err: any) {
-      alert(`Failed to update page template: ${err.message}`);
+      toast.error('Update Failed', err.message || 'Failed to update page template');
     }
   };
 
@@ -342,7 +360,7 @@ export default function StudioPage() {
       const updated = await pithApi.getSite(siteData.id);
       setSiteData(updated);
     } catch (err: any) {
-      alert(`Extraction start failed: ${err.message}`);
+      toast.error('Extraction Error', err.message || 'Extraction start failed');
     } finally {
       setIsStartingExtract(false);
     }

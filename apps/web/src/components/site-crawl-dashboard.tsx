@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@pith/ui';
 import { SiteResponse, SitePageType, SitePageItem, pithApi } from '@/lib/api';
+import { useToast, useConfirm } from '@/context';
 
 interface SiteCrawlDashboardProps {
   site: SiteResponse;
@@ -53,6 +54,9 @@ export function SiteCrawlDashboard({
   const [searchFilter, setSearchFilter] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const crawl = site.crawl;
   const isRunning = crawl?.status === 'running' || site.status === 'extracting';
@@ -122,14 +126,99 @@ export function SiteCrawlDashboard({
     loadPages();
   }, [site.id, pageStatusFilter, searchFilter, fetchedPages, failedPages]);
 
+  const handlePause = async () => {
+    try {
+      await onPause();
+      toast.warning('Extraction Paused', 'Crawler queues suspended. Click Resume when ready.');
+    } catch (e: any) {
+      toast.error('Pause Failed', e.message || 'Could not pause crawl');
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await onResume();
+      toast.info('Extraction Resumed', 'Continuing site data extraction queue.');
+    } catch (e: any) {
+      toast.error('Resume Failed', e.message || 'Could not resume crawl');
+    }
+  };
+
+  const handleCancel = async () => {
+    const agreed = await confirm({
+      title: 'Abort Active Site Crawl?',
+      description: 'Are you sure you want to stop extracting this website? Running network workers will cease scheduling pages.',
+      details: [
+        `Already fetched: ${fetchedPages} pages`,
+        'Extracted data will remain available for export',
+        'Remaining queued pages will not be fetched',
+      ],
+      confirmText: 'Yes, Abort Crawl',
+      cancelText: 'Keep Crawling',
+      variant: 'danger',
+    });
+
+    if (!agreed) return;
+
+    try {
+      await onCancel();
+      toast.info('Crawl Aborted', 'Site extraction was stopped by user.');
+    } catch (e: any) {
+      toast.error('Cancel Failed', e.message || 'Could not cancel crawl');
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    try {
+      toast.info('Retrying Failed Pages', `Re-queueing ${failedPages} failed page requests...`);
+      await onRetryFailed();
+    } catch (e: any) {
+      toast.error('Retry Failed', e.message || 'Could not retry failed pages');
+    }
+  };
+
   const handleDownloadZip = () => {
-    const exportUrl = pithApi.getSiteExportUrl(site.id, { format: 'zip' });
-    window.open(exportUrl, '_blank');
+    try {
+      toast.info('Export Started', 'Preparing full-site ZIP archive with all templates and manifest...');
+      const exportUrl = pithApi.getSiteExportUrl(site.id, { format: 'zip' });
+      window.open(exportUrl, '_blank');
+    } catch (e: any) {
+      toast.error('Export Failed', e.message || 'Could not trigger ZIP export');
+    }
   };
 
   const handleDownloadType = (typeId: string, format: 'csv' | 'json' | 'xlsx') => {
-    const exportUrl = pithApi.getSiteExportUrl(site.id, { typeId, format });
-    window.open(exportUrl, '_blank');
+    try {
+      const typeName = site.page_types.find((t) => t.id === typeId)?.name || 'template';
+      toast.success('Export Started', `Downloading ${format.toUpperCase()} dataset for ${typeName}...`);
+      const exportUrl = pithApi.getSiteExportUrl(site.id, { typeId, format });
+      window.open(exportUrl, '_blank');
+    } catch (e: any) {
+      toast.error('Export Failed', e.message || 'Could not export dataset');
+    }
+  };
+
+  const handleStartNew = async () => {
+    if (isRunning) {
+      const agreed = await confirm({
+        title: 'Crawl Still Running',
+        description: 'An extraction job is currently in progress. Starting a new crawl will leave this session.',
+        confirmText: 'Leave and Start New Crawl',
+        cancelText: 'Stay on Dashboard',
+        variant: 'warning',
+      });
+      if (!agreed) return;
+    } else if (fetchedPages > 0 && !isCancelled) {
+      const agreed = await confirm({
+        title: 'Start New Site Discovery?',
+        description: 'Have you exported all the required data from this crawl? Starting a new crawl will reset the active dashboard view.',
+        confirmText: 'Start New Crawl',
+        cancelText: 'Stay Here',
+        variant: 'warning',
+      });
+      if (!agreed) return;
+    }
+    onReset();
   };
 
   return (
@@ -179,7 +268,7 @@ export function SiteCrawlDashboard({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={onPause}
+                onClick={handlePause}
                 className="font-mono text-xs gap-1.5 h-9 border-amber-800/50 text-amber-400 hover:bg-amber-950/40"
               >
                 <Pause className="w-3.5 h-3.5" />
@@ -191,7 +280,7 @@ export function SiteCrawlDashboard({
               <Button
                 size="sm"
                 variant="primary"
-                onClick={onResume}
+                onClick={handleResume}
                 className="font-mono text-xs gap-1.5 h-9"
               >
                 <Play className="w-3.5 h-3.5" />
@@ -203,7 +292,7 @@ export function SiteCrawlDashboard({
               <Button
                 size="sm"
                 variant="danger"
-                onClick={onCancel}
+                onClick={handleCancel}
                 className="font-mono text-xs gap-1.5 h-9"
               >
                 <XCircle className="w-3.5 h-3.5" />
@@ -215,7 +304,7 @@ export function SiteCrawlDashboard({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={onRetryFailed}
+                onClick={handleRetryFailed}
                 className="font-mono text-xs gap-1.5 h-9 border-rose-800/50 text-rose-400 hover:bg-rose-950/40"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -614,7 +703,7 @@ export function SiteCrawlDashboard({
         <Button
           size="sm"
           variant="outline"
-          onClick={onReset}
+          onClick={handleStartNew}
           icon={<RotateCcw className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
           className="font-mono text-xs border-zinc-700 hover:text-zinc-100 px-3.5 h-8 whitespace-nowrap"
         >

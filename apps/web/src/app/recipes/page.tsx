@@ -18,12 +18,16 @@ import {
 } from 'lucide-react';
 import { Button } from '@pith/ui';
 import { pithApi, RecipeResponse } from '@/lib/api';
+import { useToast, useConfirm } from '@/context';
 
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<RecipeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [runningRecipeId, setRunningRecipeId] = useState<string | null>(null);
+
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const fetchRecipes = async () => {
     setLoading(true);
@@ -44,11 +48,12 @@ export default function RecipesPage() {
   const handleRunNow = async (id: string, name: string) => {
     setRunningRecipeId(id);
     try {
+      toast.info('Executing Recipe', `Starting background run for "${name}"...`);
       await pithApi.runRecipe(id);
-      alert(`Recipe "${name}" started in background!`);
+      toast.success('Recipe Triggered', `Recipe "${name}" executed successfully.`);
       await fetchRecipes();
     } catch (err: any) {
-      alert(`Failed to trigger run: ${err.message}`);
+      toast.error('Execution Failed', err.message || 'Failed to trigger run');
     } finally {
       setRunningRecipeId(null);
     }
@@ -58,20 +63,35 @@ export default function RecipesPage() {
     try {
       const resp = await fetch(`/api/v1/recipes/${id}/duplicate`, { method: 'POST' });
       if (resp.ok) {
+        toast.success('Recipe Duplicated', 'A duplicate copy has been created.');
         await fetchRecipes();
       }
     } catch (err) {
-      console.error('Duplicate failed', err);
+      toast.error('Duplicate Failed', 'Could not duplicate recipe');
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete recipe "${name}"?`)) return;
+    const agreed = await confirm({
+      title: 'Delete Scraper Recipe?',
+      description: `Are you sure you want to permanently delete "${name}"?`,
+      details: [
+        'Recipe configuration and selector fields will be deleted',
+        'Scheduled diff runs will be terminated',
+      ],
+      confirmText: 'Delete Recipe',
+      cancelText: 'Keep Recipe',
+      variant: 'danger',
+    });
+
+    if (!agreed) return;
+
     try {
       await pithApi.deleteRecipe(id);
       setRecipes((prev) => prev.filter((r) => r.id !== id));
+      toast.success('Recipe Deleted', `Recipe "${name}" was deleted.`);
     } catch (err: any) {
-      alert(`Delete failed: ${err.message}`);
+      toast.error('Delete Failed', err.message || 'Could not delete recipe');
     }
   };
 

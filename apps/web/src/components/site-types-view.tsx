@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@pith/ui';
 import { SitePageType } from '@pith/sdk';
+import { useToast, useConfirm } from '@/context';
 
 interface SiteTypesViewProps {
   siteId: string;
@@ -47,6 +48,9 @@ export function SiteTypesView({
   const [expandedTypeId, setExpandedTypeId] = useState<string | null>(pageTypes[0]?.id || null);
   const [activeTab, setActiveTab] = useState<'samples' | 'selectors'>('samples');
 
+  const toast = useToast();
+  const confirm = useConfirm();
+
   // Compute estimates
   const selectedTypes = pageTypes.filter((t) => t.is_included);
   const totalPagesToExtract = selectedTypes.reduce((acc, t) => acc + (t.page_count || 0), 0);
@@ -56,12 +60,19 @@ export function SiteTypesView({
   const handleSaveName = async (typeId: string) => {
     if (editNameValue.trim()) {
       await onUpdateType(typeId, { name: editNameValue.trim() });
+      toast.success('Template Renamed', `Updated name to "${editNameValue.trim()}"`);
     }
     setEditingTypeId(null);
   };
 
   const handleToggleInclude = async (pt: SitePageType) => {
-    await onUpdateType(pt.id, { is_included: !pt.is_included });
+    const nextState = !pt.is_included;
+    await onUpdateType(pt.id, { is_included: nextState });
+    if (nextState) {
+      toast.info('Template Included', `"${pt.name}" (${pt.page_count} pages) added to extraction.`);
+    } else {
+      toast.info('Template Excluded', `"${pt.name}" excluded from extraction.`);
+    }
   };
 
   const handleToggleAll = async (include: boolean) => {
@@ -70,6 +81,37 @@ export function SiteTypesView({
         await onUpdateType(pt.id, { is_included: include });
       }
     }
+    if (include) {
+      toast.success('All Templates Selected', `Selected all ${pageTypes.length} templates.`);
+    } else {
+      toast.info('All Templates Deselected', 'Excluded all templates from extraction.');
+    }
+  };
+
+  const handleStart = async () => {
+    if (selectedTypes.length === 0) {
+      toast.warning('No Templates Selected', 'Please select at least one page template to extract.');
+      return;
+    }
+
+    if (totalPagesToExtract > 50) {
+      const agreed = await confirm({
+        title: 'Launch Full-Site Extraction?',
+        description: `This will launch structured data extraction across ${totalPagesToExtract} pages across ${selectedTypes.length} templates on ${domain}.`,
+        details: [
+          `Target: ${domain}`,
+          `Estimated time: ~${estimatedSeconds < 60 ? `${estimatedSeconds}s` : `${Math.round(estimatedSeconds / 60)}m`}`,
+          `Worker delay: ${crawlDelay}s per request`,
+        ],
+        confirmText: `Extract ${totalPagesToExtract} Pages`,
+        cancelText: 'Review First',
+        variant: 'primary',
+      });
+      if (!agreed) return;
+    }
+
+    toast.info('Extraction Dispatched', `Starting extraction workers for ${totalPagesToExtract} pages...`);
+    onStartExtraction();
   };
 
   return (
@@ -361,7 +403,7 @@ export function SiteTypesView({
           <Button
             size="lg"
             variant="primary"
-            onClick={onStartExtraction}
+            onClick={handleStart}
             disabled={selectedTypes.length === 0 || isStarting}
             className="font-mono text-xs font-bold gap-2 px-6 h-11"
           >
