@@ -1,4 +1,4 @@
-# pith — Intelligent Web Scraping & Detection System
+# pith - Intelligent Web Scraping & Detection System
 
 A developer-grade web scraping platform with a Next.js UI, FastAPI Python engine, and TypeScript SDK/CLI. Obeying ethical robots.txt policies, autonomous DOM pattern discovery, visual sandbox inspector, scheduled recipes, change alert diffing, full-site crawling, stealth fingerprinting, and dynamic proxy pools.
 
