@@ -5,6 +5,10 @@ import { Header } from '../components/header';
 export const metadata: Metadata = {
   title: 'pith - Intelligent Web Scraping & Detection System',
   description: 'High-density developer platform for safe, automated, and structured web data extraction.',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({

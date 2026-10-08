@@ -96,9 +96,24 @@ async def fetch_page(
 
                 page = await context.new_page()
                 resp = await page.goto(url, wait_until="domcontentloaded", timeout=int(timeout * 1000))
-                
-                # Wait for any dynamic DOM content to render
+
+                # 1. Wait for background AJAX / XHR requests to finish rendering data tables
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=5000)
+                except Exception:
+                    pass
+
+                # 2. Scroll to bottom and back to trigger lazy-loaded rows & tables
+                try:
+                    await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    await page.wait_for_timeout(1000)
+                    await page.evaluate("window.scrollTo(0, 0)")
+                except Exception:
+                    pass
+
+                # 3. Extra render buffer
                 await page.wait_for_timeout(1500)
+
                 html = await page.content()
                 status = resp.status if resp else 200
                 response_headers = resp.headers if resp else {}

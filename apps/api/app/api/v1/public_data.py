@@ -90,6 +90,19 @@ async def list_api_keys(db: AsyncSession = Depends(get_db)) -> List[ApiKeyRespon
     ]
 
 
+@router.delete("/keys/{key_id}")
+async def delete_api_key(key_id: str, db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+    """Deletes an existing API key."""
+    stmt = select(ApiKey).where(ApiKey.id == key_id)
+    res = await db.execute(stmt)
+    k = res.scalar_one_or_none()
+    if not k:
+        raise HTTPException(status_code=404, detail="API Key not found")
+    await db.delete(k)
+    await db.commit()
+    return {"status": "deleted", "id": key_id}
+
+
 @router.get("/r/{slug}/data")
 async def get_public_recipe_data(
     slug: str,

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Terminal, Database, Bookmark, Code2, Settings, ShieldCheck, Sun, Moon, Coffee } from 'lucide-react';
 
@@ -32,8 +33,15 @@ export const Header: React.FC = () => {
         {/* Brand */}
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-7 h-7 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm group-hover:border-emerald-500 transition-colors">
-              P
+            <div className="w-7 h-7 rounded overflow-hidden bg-black border border-emerald-500/30 flex items-center justify-center group-hover:border-emerald-500 transition-colors p-0.5 shadow-sm">
+              <Image
+                src="/logo.png"
+                alt="pith logo"
+                width={28}
+                height={28}
+                className="w-full h-full object-contain rounded"
+                priority
+              />
             </div>
             <div className="flex items-baseline gap-1.5">
               <span className="font-bold text-sm tracking-wider text-zinc-100 uppercase">pith</span>
