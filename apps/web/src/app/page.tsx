@@ -81,16 +81,31 @@ export default function StudioPage() {
   const parseHeaders = (): Record<string, string> | undefined => {
     if (!rawHeadersInput.trim()) return undefined;
     const headers: Record<string, string> = {};
-    const lines = rawHeadersInput.split('\n');
+    const lines = rawHeadersInput.split('\n').map((l) => l.trim()).filter(Boolean);
     for (const line of lines) {
       const idx = line.indexOf(':');
       if (idx !== -1) {
         const k = line.slice(0, idx).trim();
         const v = line.slice(idx + 1).trim();
         if (k) headers[k] = v;
+      } else if (line.includes('=') || line.includes(';')) {
+        // Raw cookie string pasted directly without 'Cookie:' prefix
+        headers['Cookie'] = (headers['Cookie'] ? headers['Cookie'] + '; ' : '') + line;
+      } else if (line.startsWith('Bearer ') || line.startsWith('bearer ')) {
+        headers['Authorization'] = line;
+      } else if (line.length > 20 && !headers['Authorization'] && !line.includes(' ')) {
+        headers['Authorization'] = `Bearer ${line}`;
       }
     }
     return Object.keys(headers).length > 0 ? headers : undefined;
+  };
+
+  const handleEngineChange = (newMethod: 'http' | 'playwright') => {
+    setMethod(newMethod);
+    if (currentUrl && checkResult?.allowed) {
+      const customHeaders = parseHeaders();
+      handleDetectPatterns(currentUrl, newMethod, customHeaders);
+    }
   };
 
   // Step 1: Run Safety Check & Scrapability Evaluation
@@ -108,12 +123,14 @@ export default function StudioPage() {
     try {
       const res = await pithApi.check(url, customHeaders);
       setCheckResult(res);
-      setMethod(res.recommended_method || 'http');
+      // Respect user's active choice if they selected Playwright; otherwise default to recommendation
+      const engineToUse = method === 'playwright' ? 'playwright' : (res.recommended_method || 'http');
+      setMethod(engineToUse);
       setStep('checked');
 
-      // Auto-trigger pattern detection if scrapable
+      // Auto-trigger pattern detection if scrapable using chosen engine
       if (res.allowed) {
-        handleDetectPatterns(url, res.recommended_method || 'http', customHeaders);
+        handleDetectPatterns(url, engineToUse, customHeaders);
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Inspection failed');
@@ -238,7 +255,7 @@ export default function StudioPage() {
             <div className="flex bg-zinc-950 p-0.5 rounded border border-zinc-800">
               <button
                 type="button"
-                onClick={() => setMethod('http')}
+                onClick={() => handleEngineChange('http')}
                 className={`px-2.5 py-1 text-xs font-semibold rounded uppercase ${
                   method === 'http' ? 'bg-emerald-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
@@ -247,7 +264,7 @@ export default function StudioPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setMethod('playwright')}
+                onClick={() => handleEngineChange('playwright')}
                 className={`px-2.5 py-1 text-xs font-semibold rounded uppercase ${
                   method === 'playwright' ? 'bg-cyan-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
@@ -281,7 +298,7 @@ export default function StudioPage() {
             {showHeadersDrawer && (
               <div className="mt-2 p-3 bg-zinc-950 border border-zinc-800 rounded space-y-2 animate-in fade-in">
                 <div className="text-[10.5px] text-zinc-400">
-                  Pass custom authentication tokens, session cookies, or API keys (one per line, e.g. <code className="text-emerald-400">Authorization: Bearer YOUR_TOKEN</code>):
+                  Pass custom authentication tokens, session cookies, or API keys (one per line, e.g. <code className="text-emerald-400">Authorization: Bearer YOUR_TOKEN</code> or raw cookie):
                 </div>
                 <textarea
                   rows={2}
@@ -330,6 +347,7 @@ export default function StudioPage() {
                 score={checkResult.score}
                 level={checkResult.level}
                 recommendedMethod={checkResult.recommended_method}
+                activeMethod={method}
                 reasons={checkResult.reasons}
               />
             </div>

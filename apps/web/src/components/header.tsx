@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Terminal, Database, Bookmark, Code2, Settings, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { Terminal, Database, Bookmark, Code2, Settings, ShieldCheck, Sun, Moon, Coffee } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
@@ -65,7 +65,18 @@ export const Header: React.FC = () => {
 
         {/* Right Status & Controls */}
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded text-[11px] text-zinc-400">
+          <a
+            href="https://buymeacoffee.com/najahi"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/50 rounded text-xs font-semibold transition-all group shadow-sm"
+            title="Buy me a coffee"
+          >
+            <Coffee className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+            <span className="hidden sm:inline">Buy Me a Coffee</span>
+          </a>
+
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded text-[11px] text-zinc-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>API Online</span>
           </div>

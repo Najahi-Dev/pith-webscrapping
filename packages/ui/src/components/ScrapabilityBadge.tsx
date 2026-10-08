@@ -5,6 +5,7 @@ export interface ScrapabilityBadgeProps {
   score: number;
   level: 'easy' | 'medium' | 'hard';
   recommendedMethod: 'http' | 'playwright';
+  activeMethod?: 'http' | 'playwright';
   reasons: string[];
   className?: string;
 }
@@ -13,6 +14,7 @@ export const ScrapabilityBadge: React.FC<ScrapabilityBadgeProps> = ({
   score,
   level,
   recommendedMethod,
+  activeMethod,
   reasons,
   className = '',
 }) => {
@@ -56,10 +58,20 @@ export const ScrapabilityBadge: React.FC<ScrapabilityBadgeProps> = ({
                 Score {score}/100
               </span>
             </div>
-            <div className="text-[11px] text-zinc-400 mt-0.5 flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5 text-zinc-500" />
-              Recommended Engine:{' '}
-              <span className="font-semibold text-zinc-200 uppercase">{recommendedMethod}</span>
+            <div className="text-[11px] text-zinc-400 mt-1 flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1 text-zinc-400">
+                <Cpu className="w-3.5 h-3.5 text-zinc-500" />
+                Rec: <span className="font-semibold text-zinc-300 uppercase">{recommendedMethod}</span>
+              </span>
+              {activeMethod && (
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border uppercase ${
+                  activeMethod === 'playwright'
+                    ? 'bg-cyan-950/60 text-cyan-300 border-cyan-800'
+                    : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
+                }`}>
+                  Active: {activeMethod === 'playwright' ? 'Playwright JS' : 'Fast HTTP'}
+                </span>
+              )}
             </div>
           </div>
         </div>

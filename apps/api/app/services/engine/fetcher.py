@@ -64,14 +64,41 @@ async def fetch_page(
     if method == "playwright":
         try:
             from playwright.async_api import async_playwright
+            from urllib.parse import urlparse
+
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context(user_agent=headers["User-Agent"])
+                context = await browser.new_context(
+                    user_agent=headers.get("User-Agent", settings.DEFAULT_USER_AGENT),
+                    extra_http_headers=headers
+                )
+
+                # If custom Cookie header exists, also parse and add to cookies collection
+                cookie_str = headers.get("Cookie") or headers.get("cookie") or ""
+                if cookie_str:
+                    try:
+                        domain = urlparse(url).hostname or ""
+                        parsed_cookies = []
+                        for part in cookie_str.split(";"):
+                            if "=" in part:
+                                c_name, c_val = part.strip().split("=", 1)
+                                if c_name.strip():
+                                    parsed_cookies.append({
+                                        "name": c_name.strip(),
+                                        "value": c_val.strip(),
+                                        "domain": domain,
+                                        "path": "/"
+                                    })
+                        if parsed_cookies:
+                            await context.add_cookies(parsed_cookies)
+                    except Exception as e:
+                        print(f"[Fetcher] Cookie parse warning: {e}")
+
                 page = await context.new_page()
                 resp = await page.goto(url, wait_until="domcontentloaded", timeout=int(timeout * 1000))
                 
-                # Wait for any dynamic content
-                await page.wait_for_timeout(1000)
+                # Wait for any dynamic DOM content to render
+                await page.wait_for_timeout(1500)
                 html = await page.content()
                 status = resp.status if resp else 200
                 response_headers = resp.headers if resp else {}
@@ -90,7 +117,7 @@ async def fetch_page(
                     content_hash=content_hash
                 )
         except Exception as e:
-            # Fallback to plain HTTP if Playwright is unavailable or fails
+            print(f"[Fetcher] Playwright fetch exception: {e}")
             pass
 
     # Standard HTTP fetch with httpx

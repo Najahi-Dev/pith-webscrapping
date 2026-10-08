@@ -18,9 +18,20 @@ export default function RootLayout({
         <Header />
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">{children}</main>
         <footer className="border-t border-zinc-800/80 py-4 px-6 text-center text-xs text-zinc-500 font-mono">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>pith dev-tool systems • ethical scraping & automated DOM extraction</div>
-            <div className="text-zinc-600">Obeying robots.txt & SSRF Safe Guard active</div>
+            <div className="flex items-center gap-4 text-zinc-500">
+              <a
+                href="https://buymeacoffee.com/najahi"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-400/90 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <span>☕ buymeacoffee.com/najahi</span>
+              </a>
+              <span className="text-zinc-700">•</span>
+              <span className="text-zinc-600">Obeying robots.txt & SSRF Safe Guard active</span>
+            </div>
           </div>
         </footer>
       </body>
