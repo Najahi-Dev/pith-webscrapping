@@ -1,43 +1,156 @@
 # pith — Intelligent Web Scraping & Detection System
 
-A developer-grade web scraping platform with a Next.js UI, FastAPI Python engine, and TypeScript SDK/CLI. Obeying ethical robots.txt policies, autonomous DOM pattern discovery, visual sandbox inspector, scheduled recipes, change alert diffing, and public REST feeds.
+A developer-grade web scraping platform with a Next.js UI, FastAPI Python engine, and TypeScript SDK/CLI. Obeying ethical robots.txt policies, autonomous DOM pattern discovery, visual sandbox inspector, scheduled recipes, change alert diffing, full-site crawling, stealth fingerprinting, and dynamic proxy pools.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ [pith] Intelligent Web Scraping System                      │
-│                                                             │
-│ 1. URL Safety Check  → SSRF Guard, Robots.txt, Bot Walls    │
-│ 2. Scrapability Score → 0-100 Gauge & Method Selection      │
-│ 3. Pattern Detection  → Sibling Card Clustering & Tables    │
-│ 4. Visual Inspector   → Sandboxed Iframe Hover/Click        │
-│ 5. Extraction Engine  → Pagination, Deduplication, Clean    │
-│ 6. Recipe Automation  → Hourly/Daily/Weekly Schedules       │
-│ 7. Change Alerts      → Row Hashing, Field Diffs & Alerts   │
-│ 8. Public API Feeds   → GET /v1/r/{slug}/data               │
-└─────────────────────────────────────────────────────────────┘
+                  ┌─────────────────────────────────────────────────────────────┐
+                  │ [pith] Intelligent Web Scraping System                      │
+                  │                                                             │
+                  │ 1. URL Safety Check  → SSRF Guard, Robots.txt, Bot Walls    │
+                  │ 2. Scrapability Score → 0-100 Gauge & Method Selection      │
+                  │ 3. Pattern Detection  → Sibling Card Clustering & Tables    │
+                  │ 4. Visual Inspector   → Sandboxed Iframe Hover/Click        │
+                  │ 5. Full-Site Crawler  → Sitemaps, BFS Spiders, Clusters     │
+                  │ 6. Stealth & Proxies  → Fingerprint Spoofing & Rotation     │
+                  │ 7. Extraction Engine  → Pagination, Deduplication, Clean    │
+                  │ 8. Recipe Automation  → Hourly/Daily/Weekly Schedules       │
+                  │ 9. Change Alerts      → Row Hashing, Field Diffs & Alerts   │
+                  │ 10. Public REST Feeds → GET /v1/r/{slug}/data               │
+                  └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Stack & Architecture
+## System Architecture
 
-- **`apps/web`**: Next.js 15 (App Router, TypeScript), Tailwind CSS, Lucide Icons, Monospace dev-tool theme (JetBrains Mono / Geist Mono).
-- **`apps/api`**: FastAPI (Python 3.12), `httpx`, `selectolax` (Lexbor), `extruct`, `playwright`, `sqlalchemy`, `alembic`, `apscheduler`, `rq`, `pandas`, `openpyxl`.
-- **`packages/sdk`**: Typed TypeScript client (`PithClient`) + CLI (`npx pith check|detect|run|export`).
-- **`packages/ui`**: Standalone React component kit (`@pith/ui`) for URL input, checklists, scrapability meters, tables, diff viewers, and sandboxed visual frames.
-- **`docker-compose.yml`**: Full-stack orchestrator for Postgres, Redis, API, Web, and Worker.
+![Pith System Architecture](docs/assets/system_architecture.jpg)
+
 
 ---
 
-## Quickstart
+## Core Modules & Code Map
+
+| Component | Path | Description |
+| :--- | :--- | :--- |
+| **API Endpoints** | [`apps/api/app/api/v1/`](file:///d:/Projects/pith-webscrapping/apps/api/app/api/v1) | REST endpoints for health, inspection, detection, preview, recipes, jobs, sites, and proxies. |
+| **Fetcher Engine** | [`apps/api/app/services/engine/fetcher.py`](file:///d:/Projects/pith-webscrapping/apps/api/app/services/engine/fetcher.py) | Dual-engine fetching (HTTPX + Playwright) with gzip/deflate/brotli decoding and retry policies. |
+| **Stealth & Evasion** | [`apps/api/app/services/safety/stealth.py`](file:///d:/Projects/pith-webscrapping/apps/api/app/services/safety/stealth.py) | Realistic Client Hints, WebGL vendor/renderer spoofing, `navigator.webdriver` concealment, and WebRTC leak prevention. |
+| **Proxy Pool Manager** | [`apps/api/app/services/safety/proxy_manager.py`](file:///d:/Projects/pith-webscrapping/apps/api/app/services/safety/proxy_manager.py) | Multi-strategy proxy rotation (`round-robin`, `least-failed`, `sticky-domain`, `random`) with automatic cooldowns on 429/403. |
+| **CAPTCHA Solver** | [`apps/api/app/services/safety/captcha_solver.py`](file:///d:/Projects/pith-webscrapping/apps/api/app/services/safety/captcha_solver.py) | Cloudflare Turnstile, reCAPTCHA v2/v3, and hCaptcha detection with 2Captcha/CapMonster API solving hooks. |
+| **SSRF Firewall** | [`apps/api/app/services/safety/url_guard.py`](file:///d:/Projects/pith-webscrapping/apps/api/app/services/safety/url_guard.py) | DNS pre-resolution blocking `127.0.0.1`, RFC1918 private subnets, link-local, and cloud metadata (`169.254.169.254`). |
+| **Visual Picker Bridge** | [`apps/api/app/services/detector/html_preview.py`](file:///d:/Projects/pith-webscrapping/apps/api/app/services/detector/html_preview.py) | Sandboxed HTML generator injecting `<base href>` and two-way postMessage inspector scripts. |
+| **Site Crawler** | [`apps/api/app/services/site/`](file:///d:/Projects/pith-webscrapping/apps/api/app/services/site) | Multi-page link discovery, sitemap.xml index traversal, and URL pattern clustering. |
+| **Web Studio** | [`apps/web/src/app/`](file:///d:/Projects/pith-webscrapping/apps/web/src/app) | Modern Next.js 14 UI with Studio workspace, visual picker modal, jobs tracker, diff inspector, and settings. |
+
+---
+
+## End-to-End System Workflows
+
+### 1. Single Target Auto-Discovery & Extraction
+
+1. **Target Inspection**:
+   - The user inputs a URL (e.g., `https://example.com/shop`).
+   - The backend runs `validate_url()` to protect against SSRF and tests `robots.txt` compliance.
+   - Pith calculates a **Scrapeability Score** (0–100) estimating bot resistance, Cloudflare protection, and JS rendering requirements.
+
+2. **Structure & Pattern Discovery**:
+   - The extraction engine detects repeated repeating item patterns (product cards, article lists, search results), HTML tables, key-value entity pairs, and embedded JSON-LD schemas.
+   - Discovered structures are presented as selectable category cards with live sample rows.
+
+3. **Data Cleaning & Export**:
+   - The user selects desired columns (e.g., `title`, `price`, `image_url`, `rating`).
+   - Pith cleans whitespace, normalizes currencies (`$1,299.00` → `1299.00`), and formats dates into ISO-8601.
+   - Instant export is available in **JSON**, **CSV**, **Excel**, or **JSONL**.
+
+---
+
+### 2. Visual Selector Kit (Point-and-Click Inspector)
+
+When automated heuristic detection needs custom refinement:
+
+![Pith Visual Selector Kit Workflow](docs/assets/visual_selector_flow.jpg)
+
+
+---
+
+### 3. Full-Site Discovery & Multi-Page Crawler
+
+1. **Seed & Discovery**:
+   - Input seed domain (e.g., `https://news.ycombinator.com`).
+   - Traverses `sitemap.xml` and `sitemap_index.xml` alongside concurrent breadth-first link crawling.
+   - Enforces strict domain boundaries to prevent spidering off-domain external links.
+
+2. **Pattern Clustering**:
+   - Identifies URL path patterns (e.g., `/item?id=*` vs `/user?id=*`).
+   - Extracts sample pages from each cluster for recipe matching.
+
+3. **Batch Extraction & Export**:
+   - Concurrently processes queued URLs using worker pools with rate-limiting and domain-level proxy stickiness.
+   - Aggregates multi-page datasets into a single downloadable archive.
+
+---
+
+### 4. Stealth & Proxy Pool Management
+
+1. **Browser Fingerprint Spoofing**:
+   - Generates randomized, genuine Chromium/macOS/Windows fingerprints (Platform, Sec-Ch-Ua, WebGL ANGLE renderer strings, Hardware Concurrency, AudioContext).
+   - Playwright context injects evasion scripts before any document script executes, masking `navigator.webdriver` and spoofing `window.chrome`.
+
+2. **Proxy Rotation & Failover**:
+   - Configure proxy endpoints (`http://`, `https://`, `socks5://`).
+   - Supports 4 rotation policies:
+     - `round-robin`: Cycles sequentially across the pool.
+     - `least-failed`: Selects proxies with the highest success rate.
+     - `sticky-domain`: Binds a proxy to a target domain to maintain session cookies.
+     - `random`: Random selection per request.
+   - Triggers exponential cooldowns on HTTP 429 (Too Many Requests) or 403 (Forbidden).
+
+3. **Automated CAPTCHA Solving**:
+   - Detects Cloudflare Turnstile, Google reCAPTCHA v2/v3, and hCaptcha tokens.
+   - Dispatches background solving tasks via 2Captcha or CapMonster and injects clearance tokens directly into the browser page.
+
+---
+
+### 5. Jobs, Scheduling & Semantic Diff Monitoring
+
+1. **Recipe Creation**:
+   - Save extraction configurations (target URL, engine type, CSS/XPath selectors, headers, and cleaning rules).
+
+2. **Scheduled Executions & Webhooks**:
+   - Run jobs on a cron schedule or on-demand via the REST API.
+
+3. **Change Detection Engine**:
+   - Compares SHA-256 payload hashes against historical snapshots.
+   - Calculates semantic diffs (added rows, deleted items, modified price/inventory fields) and triggers instant alert toasts or webhook dispatches.
+
+---
+
+## API Reference Summary
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/v1/check` | Analyze target URL scrapeability score, bot defenses, and robots.txt. |
+| `POST` | `/v1/detect` | Auto-detect catalogs, tables, entities, and JSON-LD schemas from HTML. |
+| `POST` | `/v1/preview` | Generate a sanitized HTML preview for the Visual Selector Kit. |
+| `GET` | `/v1/preview/render` | Direct HTML render endpoint for iframe embedding. |
+| `GET` / `POST` | `/v1/recipes` | List or create reusable extraction recipes. |
+| `POST` | `/v1/recipes/{id}/run` | Execute a saved recipe and return structured dataset. |
+| `POST` | `/v1/sites/discover` | Discover site-wide link graphs, sitemaps, and URL clusters. |
+| `POST` | `/v1/sites/crawl` | Run multi-page batch extraction over discovered URL patterns. |
+| `GET` / `POST` | `/v1/proxies` | Retrieve proxy pool health status or add new proxy nodes. |
+| `POST` | `/v1/proxies/test` | Live ping and latency test for a proxy node. |
+
+---
+
+## Quickstart & Local Development
 
 ### 1. Run Everything with Docker
 
 ```bash
 docker compose up --build
 ```
-- **Web Interface**: [http://localhost:3000](http://localhost:3000)
-- **API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Web Studio**: [http://localhost:3000](http://localhost:3000)
+- **API & Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
 
@@ -49,7 +162,7 @@ python -m pip install -r apps/api/requirements.txt
 uvicorn app.main:app --reload --port 8000 --app-dir apps/api
 ```
 
-#### Run Backend Tests
+#### Run Backend Test Suite (43 Tests)
 ```bash
 pytest apps/api/tests -v
 ```
@@ -62,90 +175,33 @@ npm run dev --workspace=apps/web
 
 ---
 
-## Features
+## TypeScript SDK Usage
 
-### 1. Safety & Compliance Guard
-- **SSRF Protection**: Blocks loopback (`127.0.0.1`), private RFC1918 subnets (`10.0.0.0/8`, `192.168.0.0/16`, `172.16.0.0/12`), and AWS/GCP instance metadata (`169.254.169.254`). Re-validates every redirect hop.
-- **Robots.txt Parser**: Respects user-agent directives (`PithBot` or `*`), disallowed paths, crawl-delays, and sitemaps.
-- **ToS Prohibition Detection**: Scans landing pages for automated scraping restrictions.
-- **Anti-Bot & CAPTCHA Wall Detection**: Reports Cloudflare, DataDome, PerimeterX, and reCAPTCHA as "hard".
-
-### 2. Scrapability Scorer
-- Generates a **0–100 score** with difficulty tier (`easy`, `medium`, `hard`) and automatic method recommendation (`http` for fast static DOM vs `playwright` for heavy client SPAs).
-
-### 3. DOM Detection & Auto Patterns
-- Automatically groups and counts:
-  - Repeated sibling item cards (products, listings, posts) with title, price, image, link, rating, and description heuristics.
-  - HTML data tables (`<table>`).
-  - Structured metadata (JSON-LD schemas, OpenGraph tags).
-  - Hyperlinks, images, and contact entities (emails, phone numbers, prices, dates).
-  - Returns 3 sample rows per category.
-
-### 4. Sandboxed Visual Picker
-- Strips scripts and framebusters, injects `<base href>`, and loads the target page in a sandboxed iframe.
-- Real-time hover outline and click-to-capture field builder with container selector detection.
-
-### 5. Data Cleaning Pipeline
-- Whitespace normalization & duplicate row removal.
-- Price normalization: extracts numeric float + ISO currency (`USD`, `EUR`, `GBP`, etc.).
-- Date normalization: ISO 8601 formatting (`YYYY-MM-DD`).
-- Absolute URL resolution.
-- Side-by-side Before & After cleaner toggle.
-
-### 6. Recipes & Scheduled Automation
-- Save scraping configurations (URL, method, selectors, pagination, cleaning, schedule).
-- Run on-demand or schedule via APScheduler (`hourly`, `daily`, `weekly`, or 5-field cron).
-
-### 7. Change Alerts & Diff Engine
-- Hashes rows by identity key (`url`, `id`, `sku`, or custom key).
-- Computes added, removed, and modified items with field-level before/after diffs.
-- Triggers alert rules (e.g., *Price dropped*, *New item added*).
-
-### 8. Public REST API Mode
-- Serve any recipe's latest dataset directly:
-```bash
-GET /v1/r/{slug}/data?format=json|csv&page=1&limit=50
-```
-
----
-
-## TypeScript SDK & CLI
-
-### CLI
-```bash
-# Check URL
-npx pith check https://news.ycombinator.com
-
-# Auto-detect structures
-npx pith detect https://news.ycombinator.com
-
-# Run extraction & save to CSV
-npx pith run https://news.ycombinator.com --pages 2 --output hn.csv
-
-# Export job dataset
-npx pith export <job_id> --format xlsx --output catalog.xlsx
-```
-
-### TypeScript Client
 ```typescript
 import { PithClient } from '@pith/sdk';
 
 const pith = new PithClient({ baseUrl: 'http://localhost:8000' });
 
-// Check scrapability
-const check = await pith.check('https://example.com');
-console.log(check.score, check.reasons);
+async function main() {
+  // 1. Inspect URL scrapability & bot defense
+  const check = await pith.checkUrl('https://example.com/products');
+  console.log(`Scrape Score: ${check.score}/100, Requires Browser: ${check.requires_browser}`);
 
-// Extract data
-const job = await pith.createJob({
-  url: 'https://example.com',
-  pagination: { enabled: true, max_pages: 3 }
-});
-const finished = await pith.waitForJob(job.id);
-console.log(finished.results);
+  // 2. Auto-detect structures
+  const detect = await pith.detectStructures('https://example.com/products');
+  console.log(`Discovered ${detect.total_categories} categories`);
+
+  // 3. Run extraction recipe
+  const result = await pith.runRecipe('recipe_123', {
+    maxPages: 5,
+    enableStealth: true,
+  });
+  console.log(`Extracted ${result.total_rows} items`);
+}
 ```
 
 ---
 
 ## License
 MIT © Pith Systems
+
