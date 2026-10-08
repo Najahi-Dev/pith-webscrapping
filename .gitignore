@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js Build
+.next/
+out/
+build/
+dist/
+
+# Python Cache & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.env.local
+.venv/
+venv/
+ENV/
+
+# Database & SQLite
+*.db
+*.sqlite
+*.sqlite3
+pith.db
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & OS
+*.log
+npm-debug.log*
+yarn-debug.log*
+.DS_Store
+Thumbs.db

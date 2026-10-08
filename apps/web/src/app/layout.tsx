@@ -3,7 +3,7 @@ import '../styles/globals.css';
 import { Header } from '../components/header';
 
 export const metadata: Metadata = {
-  title: 'pith — Intelligent Web Scraping & Detection System',
+  title: 'pith - Intelligent Web Scraping & Detection System',
   description: 'High-density developer platform for safe, automated, and structured web data extraction.',
 };
 

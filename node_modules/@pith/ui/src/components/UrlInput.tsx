@@ -41,20 +41,21 @@ export const UrlInput: React.FC<UrlInputProps> = ({
           onChange={(e) => setUrl(e.target.value)}
           placeholder={placeholder}
           disabled={disabled || loading}
-          className="w-full h-11 pl-10 pr-28 font-mono text-sm bg-zinc-900/90 text-zinc-100 placeholder:text-zinc-600 border border-zinc-700/80 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-inner"
+          className="w-full h-11 pl-10 pr-36 font-mono text-sm bg-zinc-900/90 text-zinc-100 placeholder:text-zinc-600 border border-zinc-700/80 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-inner"
         />
 
-        {url && !loading && (
-          <button
-            type="button"
-            onClick={() => setUrl('')}
-            className="absolute right-24 text-zinc-500 hover:text-zinc-300 p-1 rounded"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
+        <div className="absolute right-1.5 flex items-center gap-2">
+          {url && !loading && (
+            <button
+              type="button"
+              onClick={() => setUrl('')}
+              className="text-zinc-500 hover:text-zinc-200 p-1.5 rounded hover:bg-zinc-800/60 transition-colors"
+              title="Clear input"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
 
-        <div className="absolute right-1.5">
           <Button
             type="submit"
             variant="primary"

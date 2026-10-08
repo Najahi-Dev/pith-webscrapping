@@ -160,10 +160,12 @@ export interface ChangeRecord {
   removed_count: number;
   modified_count: number;
   diff_summary: {
+    key_field?: string;
     added_rows: any[];
     removed_rows: any[];
     modified_rows: any[];
     alerts: string[];
+    has_changes?: boolean;
   };
   alert_triggered: boolean;
   alert_messages: string[];

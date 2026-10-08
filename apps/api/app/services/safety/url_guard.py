@@ -122,9 +122,9 @@ def validate_url(url: str, allow_custom_ports: bool = False) -> Tuple[bool, Opti
     return True, resolved_ips[0], None
 
 
-def safe_redirect_hook(response) -> None:
+async def safe_redirect_hook(response) -> None:
     """
-    Hook to be used in httpx/requests client to re-validate URL after each redirect.
+    Async hook to be used in httpx.AsyncClient to re-validate URL after each redirect.
     Raises URLValidationError if redirect target is blocked.
     """
     if response.is_redirect and "location" in response.headers:
