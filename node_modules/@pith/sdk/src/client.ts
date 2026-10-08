@@ -75,7 +75,7 @@ export class PithClient {
    */
   async detect(
     url: string,
-    options?: { method?: 'http' | 'playwright'; htmlOverride?: string }
+    options?: { method?: 'http' | 'playwright'; htmlOverride?: string; customHeaders?: Record<string, string> }
   ): Promise<DetectResponse> {
     return this.request<DetectResponse>('/v1/detect', {
       method: 'POST',
@@ -83,6 +83,7 @@ export class PithClient {
         url,
         method: options?.method || 'http',
         html_override: options?.htmlOverride,
+        custom_headers: options?.customHeaders,
       }),
     });
   }
@@ -92,7 +93,7 @@ export class PithClient {
    */
   async preview(
     url: string,
-    options?: { method?: 'http' | 'playwright'; htmlOverride?: string }
+    options?: { method?: 'http' | 'playwright'; htmlOverride?: string; customHeaders?: Record<string, string> }
   ): Promise<PreviewResponse> {
     return this.request<PreviewResponse>('/v1/preview', {
       method: 'POST',
@@ -100,6 +101,7 @@ export class PithClient {
         url,
         method: options?.method || 'http',
         html_override: options?.htmlOverride,
+        custom_headers: options?.customHeaders,
       }),
     });
   }

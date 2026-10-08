@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Response
 from app.services.engine.fetcher import fetch_page
@@ -12,6 +12,7 @@ class PreviewRequest(BaseModel):
     url: str
     method: Optional[str] = "http"
     html_override: Optional[str] = None
+    custom_headers: Optional[Dict[str, str]] = None
 
 
 class PreviewResponse(BaseModel):
@@ -31,7 +32,7 @@ async def preview_page(req: PreviewRequest) -> PreviewResponse:
     if req.html_override:
         raw_html = req.html_override
     else:
-        fetch_res = await fetch_page(target_url, method=req.method or "http")
+        fetch_res = await fetch_page(target_url, method=req.method or "http", custom_headers=req.custom_headers)
         if fetch_res.error:
             raise HTTPException(status_code=400, detail=f"Failed to fetch preview: {fetch_res.error}")
         raw_html = fetch_res.html

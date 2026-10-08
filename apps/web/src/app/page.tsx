@@ -75,6 +75,23 @@ export default function StudioPage() {
   const [runningJob, setRunningJob] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
+  const [showHeadersDrawer, setShowHeadersDrawer] = useState(false);
+  const [rawHeadersInput, setRawHeadersInput] = useState('');
+
+  const parseHeaders = (): Record<string, string> | undefined => {
+    if (!rawHeadersInput.trim()) return undefined;
+    const headers: Record<string, string> = {};
+    const lines = rawHeadersInput.split('\n');
+    for (const line of lines) {
+      const idx = line.indexOf(':');
+      if (idx !== -1) {
+        const k = line.slice(0, idx).trim();
+        const v = line.slice(idx + 1).trim();
+        if (k) headers[k] = v;
+      }
+    }
+    return Object.keys(headers).length > 0 ? headers : undefined;
+  };
 
   // Step 1: Run Safety Check & Scrapability Evaluation
   const handleInspectUrl = async (url: string) => {
@@ -86,15 +103,17 @@ export default function StudioPage() {
     setPreviewResult(null);
     setJobResult(null);
 
+    const customHeaders = parseHeaders();
+
     try {
-      const res = await pithApi.check(url);
+      const res = await pithApi.check(url, customHeaders);
       setCheckResult(res);
       setMethod(res.recommended_method || 'http');
       setStep('checked');
 
       // Auto-trigger pattern detection if scrapable
       if (res.allowed) {
-        handleDetectPatterns(url, res.recommended_method || 'http');
+        handleDetectPatterns(url, res.recommended_method || 'http', customHeaders);
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Inspection failed');
@@ -104,12 +123,16 @@ export default function StudioPage() {
   };
 
   // Step 2: Detect Data Patterns & Categories
-  const handleDetectPatterns = async (url: string, engineMethod: 'http' | 'playwright') => {
+  const handleDetectPatterns = async (
+    url: string,
+    engineMethod: 'http' | 'playwright',
+    customHeaders?: Record<string, string>
+  ) => {
     setDetecting(true);
     try {
       const [detRes, prevRes] = await Promise.all([
-        pithApi.detect(url, { method: engineMethod }),
-        pithApi.preview(url, { method: engineMethod }),
+        pithApi.detect(url, { method: engineMethod, customHeaders }),
+        pithApi.preview(url, { method: engineMethod, customHeaders }),
       ]);
       setDetectResult(detRes);
       setPreviewResult(prevRes);
@@ -133,6 +156,8 @@ export default function StudioPage() {
     setStep('running');
     setErrorMessage(null);
 
+    const customHeaders = parseHeaders();
+
     try {
       const selectorsPayload =
         visualModeActive && customFields.length > 0
@@ -155,6 +180,7 @@ export default function StudioPage() {
           max_pages: maxPages,
         },
         cleaning_rules: cleaningRules,
+        custom_headers: customHeaders,
       });
 
       // Poll until completion
@@ -233,7 +259,7 @@ export default function StudioPage() {
         </div>
 
         {/* URL Input Bar */}
-        <div className="pt-2">
+        <div className="pt-2 space-y-2">
           <UrlInput
             initialUrl={currentUrl}
             onSubmit={handleInspectUrl}
@@ -241,6 +267,32 @@ export default function StudioPage() {
             error={errorMessage}
             placeholder="Enter target URL to check and scrape (e.g. https://example.com/products)..."
           />
+
+          {/* Request Headers & Auth Dropdown */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowHeadersDrawer(!showHeadersDrawer)}
+              className="text-[11px] text-zinc-400 hover:text-emerald-400 flex items-center gap-1 transition-colors"
+            >
+              <span>{showHeadersDrawer ? '▼ Hide Custom Request Headers / API Key' : '▶ Add Custom Request Headers / API Key'}</span>
+            </button>
+
+            {showHeadersDrawer && (
+              <div className="mt-2 p-3 bg-zinc-950 border border-zinc-800 rounded space-y-2 animate-in fade-in">
+                <div className="text-[10.5px] text-zinc-400">
+                  Pass custom authentication tokens, session cookies, or API keys (one per line, e.g. <code className="text-emerald-400">Authorization: Bearer YOUR_TOKEN</code>):
+                </div>
+                <textarea
+                  rows={2}
+                  placeholder={`Authorization: Bearer YOUR_API_KEY\nCookie: session_id=abc123`}
+                  value={rawHeadersInput}
+                  onChange={(e) => setRawHeadersInput(e.target.value)}
+                  className="w-full p-2 bg-zinc-900 border border-zinc-700/80 rounded font-mono text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Preset Quick Actions */}
