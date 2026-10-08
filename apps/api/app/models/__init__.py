@@ -101,3 +101,115 @@ class ApiKey(Base):
     rate_limit_per_minute: Mapped[int] = mapped_column(Integer, default=60)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Site(Base):
+    __tablename__ = "sites"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    domain: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    start_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)  # pending, discovering, discovered, extracting, completed, failed
+    options: Mapped[Dict[str, Any]] = mapped_column(
+        JSON,
+        default=lambda: {
+            "method": "http",
+            "max_pages": 100,
+            "max_depth": 3,
+            "crawl_delay": 0.2,
+            "include_subdomains": False,
+            "store_raw_html": False,
+            "custom_headers": {}
+        }
+    )
+    score: Mapped[int] = mapped_column(Integer, default=100)
+    level: Mapped[str] = mapped_column(String(32), default="easy")
+    robots_data: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    page_count: Mapped[int] = mapped_column(Integer, default=0)
+    extracted_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    crawls: Mapped[List["Crawl"]] = relationship("Crawl", back_populates="site", cascade="all, delete-orphan")
+    page_types: Mapped[List["PageType"]] = relationship("PageType", back_populates="site", cascade="all, delete-orphan")
+    pages: Mapped[List["SitePage"]] = relationship("SitePage", back_populates="site", cascade="all, delete-orphan")
+    extractions: Mapped[List["SiteExtraction"]] = relationship("SiteExtraction", back_populates="site", cascade="all, delete-orphan")
+
+
+class Crawl(Base):
+    __tablename__ = "crawls"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    site_id: Mapped[str] = mapped_column(String(36), ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="running", index=True)  # running, paused, completed, failed, cancelled
+    pages_discovered: Mapped[int] = mapped_column(Integer, default=0)
+    pages_fetched: Mapped[int] = mapped_column(Integer, default=0)
+    pages_failed: Mapped[int] = mapped_column(Integer, default=0)
+    speed_pages_per_sec: Mapped[float] = mapped_column(Integer, default=0)
+    estimated_time_remaining_sec: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    config: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    started_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    site: Mapped["Site"] = relationship("Site", back_populates="crawls")
+
+
+class PageType(Base):
+    __tablename__ = "page_types"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    site_id: Mapped[str] = mapped_column(String(36), ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)  # e.g. "Product Detail", "Blog Article", "Category Listing"
+    pattern: Mapped[str] = mapped_column(String(512), nullable=False)  # e.g. "/product/{id}", "/blog/{slug}"
+    is_listing: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_included: Mapped[bool] = mapped_column(Boolean, default=True)
+    selectors: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)  # container + fields
+    fields: Mapped[List[str]] = mapped_column(JSON, default=list)  # list of field names
+    sample_urls: Mapped[List[str]] = mapped_column(JSON, default=list)
+    sample_rows: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    page_count: Mapped[int] = mapped_column(Integer, default=0)
+    extracted_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    site: Mapped["Site"] = relationship("Site", back_populates="page_types")
+    pages: Mapped[List["SitePage"]] = relationship("SitePage", back_populates="page_type")
+    extractions: Mapped[List["SiteExtraction"]] = relationship("SiteExtraction", back_populates="page_type", cascade="all, delete-orphan")
+
+
+class SitePage(Base):
+    __tablename__ = "site_pages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    site_id: Mapped[str] = mapped_column(String(36), ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True)
+    crawl_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    type_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("page_types.id", ondelete="SET NULL"), nullable=True, index=True)
+    url: Mapped[str] = mapped_column(String(2048), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)  # queued, fetching, fetched, extracting, extracted, failed, skipped
+    http_status: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    depth: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    fetched_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    site: Mapped["Site"] = relationship("Site", back_populates="pages")
+    page_type: Mapped[Optional["PageType"]] = relationship("PageType", back_populates="pages")
+    extractions: Mapped[List["SiteExtraction"]] = relationship("SiteExtraction", back_populates="page", cascade="all, delete-orphan")
+
+
+class SiteExtraction(Base):
+    __tablename__ = "site_extractions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    site_id: Mapped[str] = mapped_column(String(36), ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True)
+    page_id: Mapped[str] = mapped_column(String(36), ForeignKey("site_pages.id", ondelete="CASCADE"), nullable=False, index=True)
+    type_id: Mapped[str] = mapped_column(String(36), ForeignKey("page_types.id", ondelete="CASCADE"), nullable=False, index=True)
+    data: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    row_count: Mapped[int] = mapped_column(Integer, default=0)
+    data_hash: Mapped[str] = mapped_column(String(64), default="")
+    extracted_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    site: Mapped["Site"] = relationship("Site", back_populates="extractions")
+    page: Mapped["SitePage"] = relationship("SitePage", back_populates="extractions")
+    page_type: Mapped["PageType"] = relationship("PageType", back_populates="extractions")

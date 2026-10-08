@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Globe,
   ShieldCheck,
@@ -17,6 +17,12 @@ import {
   HelpCircle,
   FileCode,
   Sparkles,
+  Network,
+  Compass,
+  FileArchive,
+  Search,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Button,
@@ -33,8 +39,12 @@ import {
   DetectResponse,
   PreviewResponse,
   JobResponse,
+  SiteResponse,
+  SitePageType,
 } from '@/lib/api';
 import { RecipeModal } from '@/components/recipe-modal';
+import { SiteTypesView } from '@/components/site-types-view';
+import { SiteCrawlDashboard } from '@/components/site-crawl-dashboard';
 
 const DEMO_PRESETS = [
   { label: 'E-commerce Catalog', url: 'https://news.ycombinator.com', note: 'Hacker News frontpage' },
@@ -43,18 +53,28 @@ const DEMO_PRESETS = [
   { label: 'Quotes To Scrape', url: 'http://quotes.toscrape.com', note: 'Multi-page quote listings' },
 ];
 
-export default function StudioPage() {
-  const [currentUrl, setCurrentUrl] = useState('');
-  const [method, setMethod] = useState<'http' | 'playwright'>('http');
-  const [step, setStep] = useState<'input' | 'checked' | 'detected' | 'running' | 'results'>('input');
+const SITE_DEMO_PRESETS = [
+  { label: 'Books Sandbox', url: 'http://books.toscrape.com', note: '1,000 items & category sitemaps' },
+  { label: 'Quotes Catalog', url: 'http://quotes.toscrape.com', note: 'Author & tag page types' },
+  { label: 'Hacker News', url: 'https://news.ycombinator.com', note: 'Story items & comment trees' },
+];
 
-  // API Results States
+export default function StudioPage() {
+  // Mode: 'page' (Single URL) or 'site' (Whole Site Crawler)
+  const [mode, setMode] = useState<'page' | 'site'>('page');
+
+  // Common Configuration
+  const [method, setMethod] = useState<'http' | 'playwright'>('http');
+  const [rawHeadersInput, setRawHeadersInput] = useState('');
+  const [showHeadersDrawer, setShowHeadersDrawer] = useState(false);
+
+  // ==================== PAGE MODE STATES ====================
+  const [currentUrl, setCurrentUrl] = useState('');
+  const [step, setStep] = useState<'input' | 'checked' | 'detected' | 'running' | 'results'>('input');
   const [checkResult, setCheckResult] = useState<CheckResponse | null>(null);
   const [detectResult, setDetectResult] = useState<DetectResponse | null>(null);
   const [previewResult, setPreviewResult] = useState<PreviewResponse | null>(null);
   const [jobResult, setJobResult] = useState<JobResponse | null>(null);
-
-  // Selection & Config States
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [visualModeActive, setVisualModeActive] = useState(false);
   const [customContainer, setCustomContainer] = useState<string | undefined>();
@@ -68,15 +88,24 @@ export default function StudioPage() {
     normalize_dates: true,
     make_urls_absolute: true,
   });
-
-  // Loading & Error States
   const [checking, setChecking] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [runningJob, setRunningJob] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
-  const [showHeadersDrawer, setShowHeadersDrawer] = useState(false);
-  const [rawHeadersInput, setRawHeadersInput] = useState('');
+
+  // ==================== SITE MODE STATES ====================
+  const [siteUrl, setSiteUrl] = useState('');
+  const [siteStep, setSiteStep] = useState<'input' | 'discovering' | 'discovered' | 'extracting'>('input');
+  const [siteMaxPages, setSiteMaxPages] = useState(100);
+  const [siteMaxDepth, setSiteMaxDepth] = useState(3);
+  const [siteCrawlDelay, setSiteCrawlDelay] = useState(0.2);
+  const [siteIncludeSubdomains, setSiteIncludeSubdomains] = useState(false);
+  const [siteDiscovering, setSiteDiscovering] = useState(false);
+  const [siteData, setSiteData] = useState<SiteResponse | null>(null);
+  const [siteError, setSiteError] = useState<string | null>(null);
+  const [isStartingExtract, setIsStartingExtract] = useState(false);
+  const [showAdvancedSiteOpts, setShowAdvancedSiteOpts] = useState(false);
 
   const parseHeaders = (): Record<string, string> | undefined => {
     if (!rawHeadersInput.trim()) return undefined;
@@ -89,7 +118,6 @@ export default function StudioPage() {
         const v = line.slice(idx + 1).trim();
         if (k) headers[k] = v;
       } else if (line.includes('=') || line.includes(';')) {
-        // Raw cookie string pasted directly without 'Cookie:' prefix
         headers['Cookie'] = (headers['Cookie'] ? headers['Cookie'] + '; ' : '') + line;
       } else if (line.startsWith('Bearer ') || line.startsWith('bearer ')) {
         headers['Authorization'] = line;
@@ -102,13 +130,13 @@ export default function StudioPage() {
 
   const handleEngineChange = (newMethod: 'http' | 'playwright') => {
     setMethod(newMethod);
-    if (currentUrl && checkResult?.allowed) {
+    if (mode === 'page' && currentUrl && checkResult?.allowed) {
       const customHeaders = parseHeaders();
       handleDetectPatterns(currentUrl, newMethod, customHeaders);
     }
   };
 
-  // Step 1: Run Safety Check & Scrapability Evaluation
+  // ==================== PAGE MODE HANDLERS ====================
   const handleInspectUrl = async (url: string) => {
     setCurrentUrl(url);
     setChecking(true);
@@ -123,12 +151,10 @@ export default function StudioPage() {
     try {
       const res = await pithApi.check(url, customHeaders);
       setCheckResult(res);
-      // Respect user's active choice if they selected Playwright; otherwise default to recommendation
       const engineToUse = method === 'playwright' ? 'playwright' : (res.recommended_method || 'http');
       setMethod(engineToUse);
       setStep('checked');
 
-      // Auto-trigger pattern detection if scrapable using chosen engine
       if (res.allowed) {
         handleDetectPatterns(url, engineToUse, customHeaders);
       }
@@ -139,7 +165,6 @@ export default function StudioPage() {
     }
   };
 
-  // Step 2: Detect Data Patterns & Categories
   const handleDetectPatterns = async (
     url: string,
     engineMethod: 'http' | 'playwright',
@@ -165,7 +190,6 @@ export default function StudioPage() {
     }
   };
 
-  // Step 3: Run Extraction Job
   const handleRunJob = async () => {
     if (!currentUrl) return;
 
@@ -200,7 +224,6 @@ export default function StudioPage() {
         custom_headers: customHeaders,
       });
 
-      // Poll until completion
       const completedJob = await pithApi.waitForJob(job.id, 800, 90000, (prog) => {
         setJobResult((prev) => (prev ? { ...prev, progress: prog } : (job as any)));
       });
@@ -215,12 +238,16 @@ export default function StudioPage() {
     }
   };
 
-  // Export Action Handler
   const handleExport = async (format: 'csv' | 'json' | 'xlsx') => {
     if (!jobResult) return;
     try {
       const data = await pithApi.exportJob(jobResult.id, format, true);
-      const mime = format === 'csv' ? 'text/csv' : format === 'json' ? 'application/json' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const mime =
+        format === 'csv'
+          ? 'text/csv'
+          : format === 'json'
+          ? 'application/json'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const blob = new Blob([data], { type: mime });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -231,6 +258,121 @@ export default function StudioPage() {
     } catch (err: any) {
       alert(`Export failed: ${err.message}`);
     }
+  };
+
+  // ==================== SITE MODE HANDLERS ====================
+  const handleStartSiteDiscovery = async (urlToDiscover?: string) => {
+    const target = (urlToDiscover || siteUrl).trim();
+    if (!target) return;
+
+    setSiteUrl(target);
+    setSiteDiscovering(true);
+    setSiteStep('discovering');
+    setSiteError(null);
+    setSiteData(null);
+
+    try {
+      const res = await pithApi.discoverSite({
+        url: target,
+        max_pages: siteMaxPages,
+        max_depth: siteMaxDepth,
+        crawl_delay: siteCrawlDelay,
+        include_subdomains: siteIncludeSubdomains,
+        method: method,
+      });
+
+      // Poll until discovery complete
+      const pollInterval = setInterval(async () => {
+        try {
+          const site = await pithApi.getSite(res.site_id);
+          setSiteData(site);
+          if (site.status === 'discovered' || site.status === 'completed' || site.status === 'failed') {
+            clearInterval(pollInterval);
+            setSiteDiscovering(false);
+            if (site.status === 'failed') {
+              setSiteError(site.error_message || 'Discovery encountered errors');
+            } else {
+              setSiteStep('discovered');
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 1500);
+    } catch (err: any) {
+      setSiteError(err.message || 'Failed to start site discovery');
+      setSiteDiscovering(false);
+      setSiteStep('input');
+    }
+  };
+
+  const handleUpdatePageType = async (typeId: string, updates: Partial<SitePageType>) => {
+    if (!siteData) return;
+    try {
+      const updatedType = await pithApi.updatePageType(siteData.id, typeId, updates);
+      setSiteData({
+        ...siteData,
+        page_types: siteData.page_types.map((pt) => (pt.id === typeId ? { ...pt, ...updatedType } : pt)),
+      });
+    } catch (err: any) {
+      alert(`Failed to update page template: ${err.message}`);
+    }
+  };
+
+  const handleStartSiteExtraction = async () => {
+    if (!siteData) return;
+    setIsStartingExtract(true);
+    try {
+      await pithApi.extractSite(siteData.id);
+      setSiteStep('extracting');
+      // Refresh site data
+      const updated = await pithApi.getSite(siteData.id);
+      setSiteData(updated);
+    } catch (err: any) {
+      alert(`Extraction start failed: ${err.message}`);
+    } finally {
+      setIsStartingExtract(false);
+    }
+  };
+
+  const handleRefreshSite = async () => {
+    if (!siteData) return;
+    try {
+      const updated = await pithApi.getSite(siteData.id);
+      setSiteData(updated);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePauseSite = async () => {
+    if (!siteData) return;
+    await pithApi.pauseSiteCrawl(siteData.id);
+    await handleRefreshSite();
+  };
+
+  const handleResumeSite = async () => {
+    if (!siteData) return;
+    await pithApi.resumeSiteCrawl(siteData.id);
+    await handleRefreshSite();
+  };
+
+  const handleCancelSite = async () => {
+    if (!siteData) return;
+    await pithApi.cancelSiteCrawl(siteData.id);
+    await handleRefreshSite();
+  };
+
+  const handleRetryFailed = async () => {
+    if (!siteData) return;
+    await pithApi.retryFailedPages(siteData.id);
+    await handleRefreshSite();
+  };
+
+  const handleResetSite = () => {
+    setSiteStep('input');
+    setSiteData(null);
+    setSiteError(null);
   };
 
   return (
@@ -250,318 +392,576 @@ export default function StudioPage() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-zinc-400 uppercase font-semibold">Engine:</span>
-            <div className="flex bg-zinc-950 p-0.5 rounded border border-zinc-800">
+          {/* Mode Switcher (Page vs Site) & Engine Selection */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Mode Switcher */}
+            <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
               <button
                 type="button"
-                onClick={() => handleEngineChange('http')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded uppercase ${
-                  method === 'http' ? 'bg-emerald-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-zinc-200'
+                onClick={() => setMode('page')}
+                className={`px-3 py-1 text-xs font-mono font-bold rounded transition-colors flex items-center gap-1.5 ${
+                  mode === 'page'
+                    ? 'bg-zinc-800 text-emerald-400 border border-zinc-700 shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                Fast HTTP
+                <FileCode className="w-3.5 h-3.5" />
+                Page Mode
               </button>
               <button
                 type="button"
-                onClick={() => handleEngineChange('playwright')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded uppercase ${
-                  method === 'playwright' ? 'bg-cyan-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-zinc-200'
+                onClick={() => setMode('site')}
+                className={`px-3 py-1 text-xs font-mono font-bold rounded transition-colors flex items-center gap-1.5 ${
+                  mode === 'site'
+                    ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                Playwright JS
+                <Compass className="w-3.5 h-3.5" />
+                Site Mode (Whole Site)
               </button>
+            </div>
+
+            {/* Engine Selection */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-zinc-400 uppercase font-semibold">Engine:</span>
+              <div className="flex bg-zinc-950 p-0.5 rounded border border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => handleEngineChange('http')}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded uppercase ${
+                    method === 'http' ? 'bg-emerald-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  Fast HTTP
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleEngineChange('playwright')}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded uppercase ${
+                    method === 'playwright' ? 'bg-cyan-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  Playwright JS
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* URL Input Bar */}
-        <div className="pt-2 space-y-2">
-          <UrlInput
-            initialUrl={currentUrl}
-            onSubmit={handleInspectUrl}
-            loading={checking || detecting}
-            error={errorMessage}
-            placeholder="Enter target URL to check and scrape (e.g. https://example.com/products)..."
-          />
-
-          {/* Request Headers & Auth Dropdown */}
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={() => setShowHeadersDrawer(!showHeadersDrawer)}
-              className="text-[11px] text-zinc-400 hover:text-emerald-400 flex items-center gap-1 transition-colors"
-            >
-              <span>{showHeadersDrawer ? '▼ Hide Custom Request Headers / API Key' : '▶ Add Custom Request Headers / API Key'}</span>
-            </button>
-
-            {showHeadersDrawer && (
-              <div className="mt-2 p-3 bg-zinc-950 border border-zinc-800 rounded space-y-2 animate-in fade-in">
-                <div className="text-[10.5px] text-zinc-400">
-                  Pass custom authentication tokens, session cookies, or API keys (one per line, e.g. <code className="text-emerald-400">Authorization: Bearer YOUR_TOKEN</code> or raw cookie):
+        {/* ========================================================================= */}
+        {/* SITE MODE INTERFACE */}
+        {/* ========================================================================= */}
+        {mode === 'site' && (
+          <div className="space-y-4 pt-2">
+            {siteStep === 'input' && (
+              <div className="space-y-3">
+                <div className="text-xs text-zinc-400 font-mono">
+                  Enter one root URL. Pith discovers pages via sitemaps & BFS links, clusters them into page templates, detects data fields, and extracts whole-site datasets.
                 </div>
-                <textarea
-                  rows={2}
-                  placeholder={`Authorization: Bearer YOUR_API_KEY\nCookie: session_id=abc123`}
-                  value={rawHeadersInput}
-                  onChange={(e) => setRawHeadersInput(e.target.value)}
-                  className="w-full p-2 bg-zinc-900 border border-zinc-700/80 rounded font-mono text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+
+                <UrlInput
+                  initialUrl={siteUrl}
+                  onSubmit={(url) => handleStartSiteDiscovery(url)}
+                  loading={siteDiscovering}
+                  error={siteError}
+                  placeholder="Enter website root URL (e.g. http://books.toscrape.com)..."
                 />
+
+                {/* Advanced Discovery Options Toggle */}
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedSiteOpts(!showAdvancedSiteOpts)}
+                    className="text-[11px] text-zinc-400 hover:text-emerald-400 flex items-center gap-1 transition-colors"
+                  >
+                    <span>{showAdvancedSiteOpts ? '▼ Hide Discovery Limits & Settings' : '▶ Configure Discovery Limits & Delay'}</span>
+                  </button>
+
+                  <div className="text-[11px] text-zinc-500">
+                    Max cap: {siteMaxPages} pages • Depth: {siteMaxDepth} • Delay: {siteCrawlDelay}s
+                  </div>
+                </div>
+
+                {/* Advanced Options Box */}
+                {showAdvancedSiteOpts && (
+                  <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-lg grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
+                    <div>
+                      <label className="text-[11px] font-mono text-zinc-400 block mb-1">Max Pages Limit</label>
+                      <select
+                        value={siteMaxPages}
+                        onChange={(e) => setSiteMaxPages(parseInt(e.target.value, 10))}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none"
+                      >
+                        <option value={50}>50 pages (Fast)</option>
+                        <option value={100}>100 pages (Standard)</option>
+                        <option value={500}>500 pages (Medium)</option>
+                        <option value={1000}>1,000 pages (Large)</option>
+                        <option value={2000}>2,000 pages (Max Cap)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono text-zinc-400 block mb-1">Max Crawl Depth</label>
+                      <select
+                        value={siteMaxDepth}
+                        onChange={(e) => setSiteMaxDepth(parseInt(e.target.value, 10))}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none"
+                      >
+                        <option value={1}>1 (Direct links only)</option>
+                        <option value={2}>2 (Standard catalog)</option>
+                        <option value={3}>3 (Deep hierarchy)</option>
+                        <option value={5}>5 (Full tree)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono text-zinc-400 block mb-1">Crawl Delay (seconds)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="5"
+                        value={siteCrawlDelay}
+                        onChange={(e) => setSiteCrawlDelay(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center pt-5">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-zinc-300">
+                        <input
+                          type="checkbox"
+                          checked={siteIncludeSubdomains}
+                          onChange={(e) => setSiteIncludeSubdomains(e.target.checked)}
+                          className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-0"
+                        />
+                        Include Subdomains
+                      </label>
+                    </div>
+
+                    {/* Warning if crawl is large */}
+                    {siteMaxPages >= 1000 && (
+                      <div className="col-span-full p-2.5 rounded bg-amber-950/40 border border-amber-800/60 text-xs text-amber-300 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>Large Crawl Warning: Crawling &gt;1,000 pages will take several minutes and obeys respectful rate limits.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Preset Demos */}
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <span className="text-[11px] text-zinc-500 font-mono">Presets:</span>
+                  {SITE_DEMO_PRESETS.map((p) => (
+                    <button
+                      key={p.url}
+                      onClick={() => handleStartSiteDiscovery(p.url)}
+                      className="px-2.5 py-1 text-xs font-mono bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-emerald-400 rounded transition-colors"
+                      title={p.note}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Live Discovery State Counter */}
+            {siteStep === 'discovering' && (
+              <div className="p-8 rounded-lg bg-zinc-950 border border-zinc-800 text-center space-y-4 animate-in fade-in">
+                <div className="flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin flex items-center justify-center" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold font-mono text-zinc-100">
+                    Discovering Website Structure...
+                  </h3>
+                  <p className="text-xs text-zinc-400 font-mono mt-1">
+                    Inspecting robots.txt, sitemaps (nested/gzip), and crawling internal links.
+                  </p>
+                </div>
+
+                {siteData && (
+                  <div className="flex items-center justify-center gap-6 pt-2">
+                    <div className="px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-left">
+                      <div className="text-[10px] text-zinc-500 uppercase">Pages Found</div>
+                      <div className="text-xl font-bold font-mono text-emerald-400">
+                        {siteData.crawl?.pages_discovered || siteData.page_count || 0}
+                      </div>
+                    </div>
+                    <div className="px-4 py-2 rounded bg-zinc-900 border border-zinc-800 text-left">
+                      <div className="text-[10px] text-zinc-500 uppercase">Pages Checked</div>
+                      <div className="text-xl font-bold font-mono text-sky-400">
+                        {siteData.crawl?.pages_fetched || 0}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </div>
+        )}
 
-        {/* Preset Quick Actions */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-zinc-400">
-          <span className="text-zinc-500 uppercase font-semibold text-[10px]">Quick Presets:</span>
-          {DEMO_PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              onClick={() => handleInspectUrl(preset.url)}
-              className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded text-zinc-300 transition-colors"
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Step 2 & 3: Check Results & Scrapability Badge */}
-      {checkResult && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              1. Scrapability Assessment & Compliance Checklist
-            </h2>
-            <span className="text-xs text-zinc-500">
-              Target: <code className="text-zinc-300">{checkResult.url}</code>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-1">
-              <ScrapabilityBadge
-                score={checkResult.score}
-                level={checkResult.level}
-                recommendedMethod={checkResult.recommended_method}
-                activeMethod={method}
-                reasons={checkResult.reasons}
+        {/* ========================================================================= */}
+        {/* PAGE MODE INTERFACE */}
+        {/* ========================================================================= */}
+        {mode === 'page' && (
+          <>
+            {/* URL Input Bar */}
+            <div className="pt-2 space-y-2">
+              <UrlInput
+                initialUrl={currentUrl}
+                onSubmit={handleInspectUrl}
+                loading={checking || detecting}
+                error={errorMessage}
+                placeholder="Enter target URL to check and scrape (e.g. https://example.com/products)..."
               />
-            </div>
-            <div className="lg:col-span-2">
-              <CheckList items={checkResult.checklist} />
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Step 4 & 5: Detected Data & Visual Selector */}
-      {detectResult && checkResult?.allowed && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-cyan-400" />
-              2. Data Detection & Structure Selection ({detectResult.total_categories} Found)
-            </h2>
+              {/* Request Headers & Auth Dropdown */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowHeadersDrawer(!showHeadersDrawer)}
+                  className="text-[11px] text-zinc-400 hover:text-emerald-400 flex items-center gap-1 transition-colors"
+                >
+                  <span>{showHeadersDrawer ? '▼ Hide Custom Request Headers / API Key' : '▶ Add Custom Request Headers / API Key'}</span>
+                </button>
 
-            {/* Mode Switcher: Category Grid vs Visual Picker */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setVisualModeActive(false)}
-                className={`px-2.5 py-1 text-xs rounded border transition-colors ${
-                  !visualModeActive
-                    ? 'bg-zinc-800 border-zinc-600 text-emerald-400 font-semibold'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Auto-Detected Categories
-              </button>
-              <button
-                type="button"
-                onClick={() => setVisualModeActive(true)}
-                className={`px-2.5 py-1 text-xs rounded border transition-colors flex items-center gap-1.5 ${
-                  visualModeActive
-                    ? 'bg-zinc-800 border-zinc-600 text-cyan-400 font-semibold'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <MousePointer className="w-3 h-3 text-cyan-400" />
-                Visual Inspector
-              </button>
+                {showHeadersDrawer && (
+                  <div className="mt-2 p-3 bg-zinc-950 border border-zinc-800 rounded space-y-2 animate-in fade-in">
+                    <div className="text-[10.5px] text-zinc-400">
+                      Paste headers, Authorization token, or cookies. Format: <code className="text-emerald-400">Header-Name: Value</code> or <code className="text-emerald-400">session_id=xyz123</code> (one per line):
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={rawHeadersInput}
+                      onChange={(e) => setRawHeadersInput(e.target.value)}
+                      placeholder={'Cookie: session_id=abc12345; auth_token=xyz987\nAuthorization: Bearer your_api_token_here\nUser-Agent: CustomBot/1.0'}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-xs font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {!visualModeActive ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {detectResult.categories.map((cat) => (
-                <CategoryCard
-                  key={cat.id}
-                  id={cat.id}
-                  name={cat.name}
-                  description={cat.description}
-                  count={cat.count}
-                  fields={cat.fields}
-                  sampleRows={cat.sample_rows}
-                  selector={cat.selector}
-                  categoryType={cat.category_type}
-                  selected={selectedCategoryId === cat.id}
-                  onSelect={(id) => setSelectedCategoryId(id)}
-                />
+            {/* Quick Presets */}
+            <div className="flex items-center gap-2 pt-1 flex-wrap">
+              <span className="text-[11px] text-zinc-500 font-mono">Presets:</span>
+              {DEMO_PRESETS.map((p) => (
+                <button
+                  key={p.url}
+                  onClick={() => handleInspectUrl(p.url)}
+                  className="px-2.5 py-1 text-xs font-mono bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-emerald-400 rounded transition-colors"
+                  title={p.note}
+                >
+                  {p.label}
+                </button>
               ))}
             </div>
-          ) : (
-            previewResult && (
-              <VisualPickerFrame
-                previewHtml={previewResult.sanitized_html}
-                targetUrl={currentUrl}
-                initialContainer={customContainer}
-                onChange={(container, fields) => {
-                  setCustomContainer(container);
-                  setCustomFields(fields);
-                }}
-              />
-            )
+          </>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* SITE MODE VIEWS (Discovered & Crawl Dashboard) */}
+      {/* ========================================================================= */}
+      {mode === 'site' && siteData && (
+        <>
+          {siteStep === 'discovered' && (
+            <SiteTypesView
+              siteId={siteData.id}
+              domain={siteData.domain}
+              pageTypes={siteData.page_types || []}
+              onUpdateType={handleUpdatePageType}
+              onStartExtraction={handleStartSiteExtraction}
+              isStarting={isStartingExtract}
+              crawlDelay={siteCrawlDelay}
+            />
           )}
 
-          {/* Job Configuration Strip (Pagination & Cleaning) */}
-          <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-6 text-xs">
-                {/* Pagination */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="page_toggle"
-                    checked={paginationEnabled}
-                    onChange={(e) => setPaginationEnabled(e.target.checked)}
-                    className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-emerald-500 focus:ring-emerald-500"
-                  />
-                  <label htmlFor="page_toggle" className="text-zinc-300 font-semibold cursor-pointer">
-                    Enable Pagination
-                  </label>
-                  {paginationEnabled && (
-                    <div className="flex items-center gap-1.5 ml-2">
-                      <span className="text-zinc-500 text-[11px]">Max Pages:</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={maxPages}
-                        onChange={(e) => setMaxPages(parseInt(e.target.value, 10) || 1)}
-                        className="w-14 h-7 px-1.5 bg-zinc-900 border border-zinc-700 rounded text-center text-xs text-zinc-100"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Cleaning toggles summary */}
-                <div className="flex items-center gap-2 text-zinc-400 text-[11px]">
-                  <Sliders className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Pipeline: Whitespace Trim, Dedup, ISO Dates, Absolute URLs Active</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={handleRunJob}
-                  loading={runningJob}
-                  icon={<Play className="w-4 h-4" />}
-                >
-                  Run Extraction Job
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+          {siteStep === 'extracting' && (
+            <SiteCrawlDashboard
+              site={siteData}
+              onRefresh={handleRefreshSite}
+              onPause={handlePauseSite}
+              onResume={handleResumeSite}
+              onCancel={handleCancelSite}
+              onRetryFailed={handleRetryFailed}
+              onReset={handleResetSite}
+            />
+          )}
+        </>
       )}
 
-      {/* Step 6: Live Job Running & Results Table */}
-      {step === 'running' && jobResult && (
-        <div className="p-6 bg-zinc-950 border border-zinc-800 rounded text-center space-y-4 animate-in fade-in">
-          <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
-            Extracting dataset from {currentUrl}...
-          </div>
-          <div className="max-w-md mx-auto space-y-2">
-            <div className="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-800">
-              <div
-                className="bg-emerald-500 h-full transition-all duration-300"
-                style={{ width: `${jobResult.progress.percent}%` }}
+      {/* ========================================================================= */}
+      {/* PAGE MODE VIEWS */}
+      {/* ========================================================================= */}
+      {mode === 'page' && (
+        <>
+          {/* Section 1: Scrapability & Safety Checklist */}
+          {checkResult && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300">
+                    Step 1: Safety & Scrapability Evaluation
+                  </h2>
+                </div>
+                <ScrapabilityBadge
+                  score={checkResult.score}
+                  level={checkResult.level}
+                  recommendedMethod={checkResult.recommended_method}
+                  activeMethod={method}
+                  reasons={checkResult.reasons}
+                />
+              </div>
+
+              <CheckList
+                items={checkResult.checklist}
               />
             </div>
-            <div className="flex items-center justify-between text-[11px] text-zinc-500">
-              <span>{jobResult.progress.message}</span>
-              <span>{jobResult.progress.rows_extracted} rows</span>
+          )}
+
+          {/* Section 2: Detected Patterns, Categories & Schema */}
+          {detectResult && (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-emerald-400" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300">
+                    Step 2: Discovered Structures & Categories ({detectResult.total_categories})
+                  </h2>
+                </div>
+
+                <Button
+                  size="sm"
+                  variant={visualModeActive ? 'primary' : 'outline'}
+                  onClick={() => setVisualModeActive(!visualModeActive)}
+                  className="gap-2 text-xs"
+                >
+                  <MousePointer className="w-3.5 h-3.5" />
+                  {visualModeActive ? 'Visual Picker Active' : 'Open Visual Picker'}
+                </Button>
+              </div>
+
+              {/* Visual Picker Frame Mode */}
+              {visualModeActive && previewResult && (
+                <VisualPickerFrame
+                  previewHtml={previewResult.sanitized_html}
+                  targetUrl={currentUrl}
+                  onChange={(container, fields) => {
+                    setCustomFields(fields);
+                    setCustomContainer(container);
+                  }}
+                />
+              )}
+
+              {/* Auto-detected Category Cards */}
+              {!visualModeActive && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {detectResult.categories.map((cat) => (
+                    <CategoryCard
+                      key={cat.id}
+                      id={cat.id}
+                      name={cat.name}
+                      description={cat.description}
+                      count={cat.count}
+                      fields={cat.fields}
+                      sampleRows={cat.sample_rows}
+                      selector={cat.selector}
+                      categoryType={cat.category_type}
+                      selected={selectedCategoryId === cat.id}
+                      onSelect={(id) => setSelectedCategoryId(id)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Extraction Options Bar */}
+              <div className="border border-zinc-800 bg-zinc-900/60 rounded p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
+                    <Sliders className="w-4 h-4 text-emerald-400" />
+                    <span>Extraction Configuration & Cleaning Rules</span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={paginationEnabled}
+                        onChange={(e) => setPaginationEnabled(e.target.checked)}
+                        className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
+                      />
+                      Follow Pagination
+                    </label>
+
+                    {paginationEnabled && (
+                      <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                        <span>Max:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={maxPages}
+                          onChange={(e) => setMaxPages(parseInt(e.target.value, 10) || 1)}
+                          className="w-14 bg-zinc-950 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-200"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cleaning Toggles */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-1 border-t border-zinc-800/60 text-xs text-zinc-400">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cleaningRules.trim_whitespace}
+                      onChange={(e) => setCleaningRules({ ...cleaningRules, trim_whitespace: e.target.checked })}
+                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
+                    />
+                    Trim Whitespace
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cleaningRules.remove_duplicates}
+                      onChange={(e) => setCleaningRules({ ...cleaningRules, remove_duplicates: e.target.checked })}
+                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
+                    />
+                    Deduplicate Rows
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cleaningRules.normalize_prices}
+                      onChange={(e) => setCleaningRules({ ...cleaningRules, normalize_prices: e.target.checked })}
+                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
+                    />
+                    Normalize Prices
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cleaningRules.normalize_dates}
+                      onChange={(e) => setCleaningRules({ ...cleaningRules, normalize_dates: e.target.checked })}
+                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
+                    />
+                    ISO Dates
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cleaningRules.make_urls_absolute}
+                      onChange={(e) => setCleaningRules({ ...cleaningRules, make_urls_absolute: e.target.checked })}
+                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
+                    />
+                    Absolute URLs
+                  </label>
+                </div>
+
+                {/* Primary Action Button */}
+                <div className="flex items-center justify-between pt-2">
+                  <Button
+                    size="md"
+                    variant="primary"
+                    onClick={handleRunJob}
+                    loading={runningJob}
+                    className="gap-2 font-bold px-6"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    Extract Dataset Now
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsRecipeModalOpen(true)}
+                    className="gap-1.5 text-xs border-zinc-700 text-zinc-300 hover:text-emerald-400"
+                  >
+                    <Bookmark className="w-3.5 h-3.5" />
+                    Save as Scheduled Recipe
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+
+          {/* Section 3: Extracted Dataset & Results View */}
+          {jobResult && (
+            <div className="space-y-4 pt-4 border-t border-zinc-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300">
+                      Step 3: Extraction Completed
+                    </h2>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Extracted {jobResult.row_count} rows across {jobResult.columns.length} columns in {jobResult.duration_ms}ms
+                  </p>
+                </div>
+
+                {/* Export Buttons */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleExport('csv')}
+                    className="text-xs gap-1 border-zinc-700"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-400" />
+                    CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleExport('json')}
+                    className="text-xs gap-1 border-zinc-700"
+                  >
+                    <Download className="w-3.5 h-3.5 text-sky-400" />
+                    JSON
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleExport('xlsx')}
+                    className="text-xs gap-1 border-zinc-700"
+                  >
+                    <Download className="w-3.5 h-3.5 text-amber-400" />
+                    Excel (XLSX)
+                  </Button>
+                </div>
+              </div>
+
+              {/* Data Table Preview */}
+              <DataPreviewTable
+                columns={jobResult.columns}
+                rows={jobResult.results || []}
+                rawRows={jobResult.raw_results || undefined}
+                onExport={handleExport}
+              />
+            </div>
+          )}
+        </>
       )}
 
-      {/* Step 7: Completed Results & Actions */}
-      {step === 'results' && jobResult && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                3. Extraction Results ({jobResult.row_count} rows in {jobResult.duration_ms}ms)
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsRecipeModalOpen(true)}
-                icon={<Bookmark className="w-3.5 h-3.5 text-amber-400" />}
-              >
-                Save as Recipe
-              </Button>
-            </div>
-          </div>
-
-          <DataPreviewTable
-            rows={jobResult.results || []}
-            rawRows={jobResult.raw_results || []}
-            columns={jobResult.columns || []}
-            onExport={handleExport}
-          />
-        </div>
+      {/* Recipe Modal */}
+      {isRecipeModalOpen && (
+        <RecipeModal
+          isOpen={isRecipeModalOpen}
+          onClose={() => setIsRecipeModalOpen(false)}
+          url={currentUrl}
+          method={method}
+          categoryId={selectedCategoryId || undefined}
+          pagination={{ enabled: paginationEnabled, max_pages: maxPages }}
+          cleaningRules={cleaningRules}
+        />
       )}
-
-      {/* Save Recipe Modal */}
-      <RecipeModal
-        isOpen={isRecipeModalOpen}
-        onClose={() => setIsRecipeModalOpen(false)}
-        url={currentUrl}
-        method={method}
-        categoryId={!visualModeActive && selectedCategoryId ? selectedCategoryId : undefined}
-        selectors={
-          visualModeActive && customFields.length > 0
-            ? {
-                container: customContainer,
-                fields: customFields.reduce((acc, f) => {
-                  acc[f.name] = { selector: f.selector, attribute: f.attribute };
-                  return acc;
-                }, {} as Record<string, any>),
-              }
-            : undefined
-        }
-        pagination={{
-          enabled: paginationEnabled,
-          max_pages: maxPages,
-        }}
-        cleaningRules={cleaningRules}
-        onSaved={(rec) => {
-          alert(`Recipe "${rec.name}" saved! View it in the Recipes dashboard.`);
-        }}
-      />
     </div>
   );
 }

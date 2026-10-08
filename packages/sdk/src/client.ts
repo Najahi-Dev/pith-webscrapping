@@ -8,6 +8,11 @@ import {
   RecipeCreateParams,
   RecipeResponse,
   ChangeRecord,
+  SiteDiscoverParams,
+  SiteResponse,
+  SitePageType,
+  PageTypeUpdateParams,
+  SitePageItem,
 } from './types';
 
 export class PithClient {
@@ -243,5 +248,107 @@ export class PithClient {
     }
     const query = params.toString() ? `?${params.toString()}` : '';
     return this.request<any>(`/v1/r/${slug}/data${query}`);
+  }
+
+  // ==================== SITE MODE METHODS ====================
+
+  /**
+   * Starts whole-site page discovery for a given root URL.
+   */
+  async discoverSite(params: SiteDiscoverParams): Promise<{ site_id: string; domain: string; status: string; message: string }> {
+    return this.request<{ site_id: string; domain: string; status: string; message: string }>('/v1/sites/discover', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  /**
+   * Gets current discovery and extraction status for a site, including page types and sample data.
+   */
+  async getSite(siteId: string): Promise<SiteResponse> {
+    return this.request<SiteResponse>(`/v1/sites/${siteId}`);
+  }
+
+  /**
+   * Updates a page type's configuration (name, inclusion, selectors, or fields).
+   */
+  async updatePageType(siteId: string, typeId: string, params: PageTypeUpdateParams): Promise<SitePageType> {
+    return this.request<SitePageType>(`/v1/sites/${siteId}/types/${typeId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(params),
+    });
+  }
+
+  /**
+   * Starts full site extraction across all included page types.
+   */
+  async extractSite(siteId: string): Promise<{ site_id: string; status: string; message: string }> {
+    return this.request<{ site_id: string; status: string; message: string }>(`/v1/sites/${siteId}/extract`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Pauses an active site crawl.
+   */
+  async pauseSiteCrawl(siteId: string): Promise<{ site_id: string; status: string }> {
+    return this.request<{ site_id: string; status: string }>(`/v1/sites/${siteId}/pause`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Resumes a paused site crawl.
+   */
+  async resumeSiteCrawl(siteId: string): Promise<{ site_id: string; status: string }> {
+    return this.request<{ site_id: string; status: string }>(`/v1/sites/${siteId}/resume`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Cancels an active site crawl.
+   */
+  async cancelSiteCrawl(siteId: string): Promise<{ site_id: string; status: string }> {
+    return this.request<{ site_id: string; status: string }>(`/v1/sites/${siteId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Re-queues all failed pages for a site and retries extraction.
+   */
+  async retryFailedPages(siteId: string): Promise<{ site_id: string; requeued_count: number; message: string }> {
+    return this.request<{ site_id: string; requeued_count: number; message: string }>(`/v1/sites/${siteId}/retry-failed`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Lists discovered pages for a site with optional filters.
+   */
+  async getSitePages(
+    siteId: string,
+    options?: { status?: string; type_id?: string; search?: string; limit?: number; offset?: number }
+  ): Promise<{ site_id: string; limit: number; offset: number; pages: SitePageItem[] }> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.type_id) params.set('type_id', options.type_id);
+    if (options?.search) params.set('search', options.search);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request<{ site_id: string; limit: number; offset: number; pages: SitePageItem[] }>(`/v1/sites/${siteId}/pages${query}`);
+  }
+
+  /**
+   * Gets export URL for site or page type data.
+   */
+  getSiteExportUrl(siteId: string, options?: { typeId?: string; format?: 'csv' | 'json' | 'xlsx' | 'zip' }): string {
+    const params = new URLSearchParams();
+    if (options?.typeId) params.set('type', options.typeId);
+    if (options?.format) params.set('format', options.format);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return `${this.baseUrl}/v1/sites/${siteId}/export${query}`;
   }
 }

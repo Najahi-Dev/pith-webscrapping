@@ -178,3 +178,76 @@ export interface PithClientOptions {
   apiKey?: string;
   timeout?: number;
 }
+
+export interface SiteDiscoverParams {
+  url: string;
+  max_pages?: number;
+  max_depth?: number;
+  crawl_delay?: number;
+  include_subdomains?: boolean;
+  method?: 'http' | 'playwright';
+}
+
+export interface SitePageType {
+  id: string;
+  name: string;
+  pattern: string;
+  is_listing: boolean;
+  is_included: boolean;
+  selectors: Record<string, any>;
+  fields: string[];
+  sample_urls: string[];
+  sample_rows: Record<string, any>[];
+  page_count: number;
+  extracted_count: number;
+}
+
+export interface SiteCrawlInfo {
+  id: string;
+  status: 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  pages_discovered: number;
+  pages_fetched: number;
+  pages_failed: number;
+  speed_pages_per_sec: number;
+  estimated_time_remaining_sec: number;
+  error_message?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface SiteResponse {
+  id: string;
+  domain: string;
+  start_url: string;
+  status: 'pending' | 'discovering' | 'discovered' | 'extracting' | 'completed' | 'failed';
+  score: number;
+  level: 'easy' | 'medium' | 'hard';
+  options: Record<string, any>;
+  robots_data: Record<string, any>;
+  page_count: number;
+  extracted_count: number;
+  error_message?: string;
+  crawl?: SiteCrawlInfo;
+  page_types: SitePageType[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SitePageItem {
+  id: string;
+  url: string;
+  type_id?: string;
+  status: string;
+  http_status?: number;
+  depth: number;
+  error?: string;
+  fetched_at?: string;
+}
+
+export interface PageTypeUpdateParams {
+  name?: string;
+  is_included?: boolean;
+  is_listing?: boolean;
+  selectors?: Record<string, any>;
+  fields?: string[];
+}
