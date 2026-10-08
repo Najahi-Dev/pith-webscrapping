@@ -26,6 +26,15 @@ export default function RootLayout({
             <div>pith dev-tool systems • ethical scraping & automated DOM extraction</div>
             <div className="flex items-center gap-4 text-zinc-500">
               <a
+                href="https://github.com/Najahi-Dev/pith-webscrapping"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 hover:text-zinc-100 font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <span>GitHub Repo</span>
+              </a>
+              <span className="text-zinc-700">•</span>
+              <a
                 href="https://buymeacoffee.com/najahi"
                 target="_blank"
                 rel="noopener noreferrer"
