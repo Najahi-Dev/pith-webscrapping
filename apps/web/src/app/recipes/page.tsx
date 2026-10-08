@@ -14,6 +14,7 @@ import {
   Plus,
   RefreshCw,
   Code2,
+  X,
 } from 'lucide-react';
 import { Button } from '@pith/ui';
 import { pithApi, RecipeResponse } from '@/lib/api';
@@ -109,17 +110,27 @@ export default function RecipesPage() {
 
       {/* Search filter */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
+        <div className="relative flex-1 max-w-md flex items-center bg-zinc-950 border border-zinc-700/80 hover:border-zinc-500 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 rounded-md px-3 h-9 transition-all duration-200 shadow-inner group">
+          <Search className="w-3.5 h-3.5 text-zinc-500 group-focus-within:text-emerald-400 shrink-0 mr-2.5 transition-colors" />
           <input
             type="text"
             placeholder="Search recipes by name, slug, or target URL..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 text-xs bg-zinc-900 border border-zinc-700/80 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 text-zinc-100 placeholder:text-zinc-600"
+            className="w-full bg-transparent text-xs font-mono focus:outline-none text-zinc-100 placeholder:text-zinc-500"
           />
+          {search ? (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors shrink-0 ml-1.5"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
         </div>
-        <span className="text-xs text-zinc-500">{filtered.length} total recipes</span>
+        <span className="text-xs font-mono text-zinc-500">{filtered.length} total recipes</span>
       </div>
 
       {/* Recipe List */}

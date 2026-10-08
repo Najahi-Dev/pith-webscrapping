@@ -22,7 +22,12 @@ import {
   FileArchive,
   Search,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Type,
+  DollarSign,
+  Calendar,
+  Link2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   Button,
@@ -57,6 +62,14 @@ const SITE_DEMO_PRESETS = [
   { label: 'Books Sandbox', url: 'http://books.toscrape.com', note: '1,000 items & category sitemaps' },
   { label: 'Quotes Catalog', url: 'http://quotes.toscrape.com', note: 'Author & tag page types' },
   { label: 'Hacker News', url: 'https://news.ycombinator.com', note: 'Story items & comment trees' },
+];
+
+const CLEANING_CONFIGS = [
+  { key: 'trim_whitespace' as const, label: 'Trim Whitespace', icon: Type, desc: 'Clean excess whitespace' },
+  { key: 'remove_duplicates' as const, label: 'Deduplicate Rows', icon: Layers, desc: 'Drop repeated identical rows' },
+  { key: 'normalize_prices' as const, label: 'Normalize Prices', icon: DollarSign, desc: 'Currency code & clean float' },
+  { key: 'normalize_dates' as const, label: 'ISO Dates', icon: Calendar, desc: 'Format to ISO-8601' },
+  { key: 'make_urls_absolute' as const, label: 'Absolute URLs', icon: Link2, desc: 'Prefix with target base URL' },
 ];
 
 export default function StudioPage() {
@@ -701,7 +714,7 @@ export default function StudioPage() {
         <>
           {/* Section 1: Scrapability & Safety Checklist */}
           {checkResult && (
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-emerald-400" />
@@ -709,18 +722,31 @@ export default function StudioPage() {
                     Step 1: Safety & Scrapability Evaluation
                   </h2>
                 </div>
-                <ScrapabilityBadge
-                  score={checkResult.score}
-                  level={checkResult.level}
-                  recommendedMethod={checkResult.recommended_method}
-                  activeMethod={method}
-                  reasons={checkResult.reasons}
-                />
+                <span className="text-xs font-mono text-zinc-500 hidden sm:inline">
+                  SSRF Guard • Robots Exclusion • Bot Defenses
+                </span>
               </div>
 
-              <CheckList
-                items={checkResult.checklist}
-              />
+              {/* High-density Side-by-Side Dashboard */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                <div className="lg:col-span-5 flex flex-col">
+                  <ScrapabilityBadge
+                    score={checkResult.score}
+                    level={checkResult.level}
+                    recommendedMethod={checkResult.recommended_method}
+                    activeMethod={method}
+                    reasons={checkResult.reasons}
+                    className="h-full"
+                  />
+                </div>
+
+                <div className="lg:col-span-7 flex flex-col">
+                  <CheckList
+                    items={checkResult.checklist}
+                    className="h-full"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -739,7 +765,7 @@ export default function StudioPage() {
                   size="sm"
                   variant={visualModeActive ? 'primary' : 'outline'}
                   onClick={() => setVisualModeActive(!visualModeActive)}
-                  className="gap-2 text-xs"
+                  className="gap-2 text-xs font-mono h-8 border-zinc-700"
                 >
                   <MousePointer className="w-3.5 h-3.5" />
                   {visualModeActive ? 'Visual Picker Active' : 'Open Visual Picker'}
@@ -780,109 +806,113 @@ export default function StudioPage() {
               )}
 
               {/* Extraction Options Bar */}
-              <div className="border border-zinc-800 bg-zinc-900/60 rounded p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                    <Sliders className="w-4 h-4 text-emerald-400" />
+              <div className="border border-zinc-800 bg-zinc-900/70 rounded-lg p-4 sm:p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold font-mono text-zinc-200">
+                    <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
                     <span>Extraction Configuration & Cleaning Rules</span>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={paginationEnabled}
-                        onChange={(e) => setPaginationEnabled(e.target.checked)}
-                        className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
-                      />
-                      Follow Pagination
-                    </label>
+                  {/* Follow Pagination Pill & Stepper */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setPaginationEnabled(!paginationEnabled)}
+                      className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-mono border transition-all ${
+                        paginationEnabled
+                          ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300 shadow-sm'
+                          : 'bg-zinc-950/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${paginationEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+                      <span>Follow Pagination</span>
+                    </button>
 
                     {paginationEnabled && (
-                      <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-                        <span>Max:</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={maxPages}
-                          onChange={(e) => setMaxPages(parseInt(e.target.value, 10) || 1)}
-                          className="w-14 bg-zinc-950 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-200"
-                        />
+                      <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded px-2 py-1">
+                        <span className="text-[10px] text-zinc-500 uppercase font-mono">Max Pages:</span>
+                        <button
+                          type="button"
+                          onClick={() => setMaxPages(Math.max(1, maxPages - 1))}
+                          className="text-zinc-400 hover:text-white px-1 text-xs font-bold leading-none"
+                        >
+                          -
+                        </button>
+                        <span className="text-xs font-mono font-bold text-emerald-400 px-1">{maxPages}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMaxPages(Math.min(10, maxPages + 1))}
+                          className="text-zinc-400 hover:text-white px-1 text-xs font-bold leading-none"
+                        >
+                          +
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Cleaning Toggles */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-1 border-t border-zinc-800/60 text-xs text-zinc-400">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cleaningRules.trim_whitespace}
-                      onChange={(e) => setCleaningRules({ ...cleaningRules, trim_whitespace: e.target.checked })}
-                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
-                    />
-                    Trim Whitespace
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cleaningRules.remove_duplicates}
-                      onChange={(e) => setCleaningRules({ ...cleaningRules, remove_duplicates: e.target.checked })}
-                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
-                    />
-                    Deduplicate Rows
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cleaningRules.normalize_prices}
-                      onChange={(e) => setCleaningRules({ ...cleaningRules, normalize_prices: e.target.checked })}
-                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
-                    />
-                    Normalize Prices
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cleaningRules.normalize_dates}
-                      onChange={(e) => setCleaningRules({ ...cleaningRules, normalize_dates: e.target.checked })}
-                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
-                    />
-                    ISO Dates
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cleaningRules.make_urls_absolute}
-                      onChange={(e) => setCleaningRules({ ...cleaningRules, make_urls_absolute: e.target.checked })}
-                      className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
-                    />
-                    Absolute URLs
-                  </label>
+                {/* Tactile Cleaning Pipeline Chips */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-1 border-t border-zinc-800/80">
+                  {CLEANING_CONFIGS.map((cfg) => {
+                    const isActive = cleaningRules[cfg.key];
+                    const Icon = cfg.icon;
+                    return (
+                      <button
+                        key={cfg.key}
+                        type="button"
+                        onClick={() => setCleaningRules({ ...cleaningRules, [cfg.key]: !isActive })}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border text-left transition-all ${
+                          isActive
+                            ? 'bg-zinc-950/90 border-emerald-500/40 text-zinc-200 shadow-[0_0_12px_rgba(16,185,129,0.06)]'
+                            : 'bg-zinc-950/40 border-zinc-850 text-zinc-500 hover:border-zinc-750 hover:text-zinc-400'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`p-1.5 rounded ${isActive ? 'bg-emerald-950 text-emerald-400' : 'bg-zinc-900 text-zinc-600'}`}>
+                            <Icon className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className={`text-xs font-mono font-semibold truncate ${isActive ? 'text-zinc-200' : 'text-zinc-400'}`}>
+                              {cfg.label}
+                            </div>
+                            <div className="text-[10px] font-mono text-zinc-500 truncate">
+                              {cfg.desc}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`ml-2 shrink-0 w-4 h-4 rounded flex items-center justify-center transition-colors ${
+                            isActive ? 'bg-emerald-500 text-zinc-950' : 'border border-zinc-750 text-transparent'
+                          }`}
+                        >
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Primary Action Button */}
-                <div className="flex items-center justify-between pt-2">
+                {/* Primary Action Button Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-800/80">
                   <Button
-                    size="md"
+                    size="lg"
                     variant="primary"
                     onClick={handleRunJob}
                     loading={runningJob}
-                    className="gap-2 font-bold px-6"
+                    icon={<Play className="w-4 h-4 fill-current shrink-0" />}
+                    className="font-bold font-mono text-xs px-7 h-11 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-all"
                   >
-                    <Play className="w-4 h-4 fill-current" />
                     Extract Dataset Now
                   </Button>
 
                   <Button
-                    size="sm"
+                    size="md"
                     variant="outline"
                     onClick={() => setIsRecipeModalOpen(true)}
-                    className="gap-1.5 text-xs border-zinc-700 text-zinc-300 hover:text-emerald-400"
+                    icon={<Bookmark className="w-4 h-4 text-emerald-400 shrink-0" />}
+                    className="text-xs font-mono border-zinc-750 text-zinc-300 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-950/20 h-11 px-5 whitespace-nowrap"
                   >
-                    <Bookmark className="w-3.5 h-3.5" />
                     Save as Scheduled Recipe
                   </Button>
                 </div>

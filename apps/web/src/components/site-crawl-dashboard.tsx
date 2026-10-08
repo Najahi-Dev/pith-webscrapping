@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Activity,
   Play,
@@ -20,7 +20,9 @@ import {
   FileText,
   FileCode,
   ExternalLink,
-  Search
+  Search,
+  X,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@pith/ui';
 import { SiteResponse, SitePageType, SitePageItem, pithApi } from '@/lib/api';
@@ -50,6 +52,7 @@ export function SiteCrawlDashboard({
   const [pageStatusFilter, setPageStatusFilter] = useState<'all' | 'failed' | 'extracted'>('all');
   const [searchFilter, setSearchFilter] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const crawl = site.crawl;
   const isRunning = crawl?.status === 'running' || site.status === 'extracting';
@@ -62,6 +65,32 @@ export function SiteCrawlDashboard({
   const fetchedPages = crawl?.pages_fetched || site.extracted_count || 0;
   const failedPages = crawl?.pages_failed || 0;
   const percent = Math.min(100, Math.round(((fetchedPages + failedPages) / totalPages) * 100));
+
+  // Global keyboard shortcut for quick search focus (/ or Ctrl+K / Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isTyping =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable;
+
+      if ((e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) && !isTyping) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      } else if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        if (searchFilter) {
+          setSearchFilter('');
+        } else {
+          searchInputRef.current?.blur();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchFilter]);
 
   // Auto-refresh poll every 2 seconds while running
   useEffect(() => {
@@ -412,40 +441,90 @@ export function SiteCrawlDashboard({
 
       {/* Per-Page Status & Failed Pages Explorer */}
       <div className="p-5 rounded-lg bg-zinc-900/50 border border-zinc-800 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold font-mono text-zinc-200">Discovered Pages & Status Log</h3>
-            <span className="text-xs font-mono text-zinc-500">({pagesList.length} shown)</span>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-1 border-b border-zinc-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="text-sm font-bold font-mono text-zinc-100 tracking-tight">
+                Discovered Pages & Status Log
+              </h3>
+            </div>
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-950 border border-zinc-800 text-zinc-400">
+              {pagesList.length} shown
+            </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Filter buttons */}
-            <div className="flex items-center rounded bg-zinc-950 border border-zinc-800 p-0.5">
-              {(['all', 'extracted', 'failed'] as const).map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setPageStatusFilter(filter)}
-                  className={`px-2.5 py-1 text-xs font-mono rounded capitalize transition-colors ${
-                    pageStatusFilter === filter
-                      ? 'bg-zinc-800 text-zinc-100 font-bold'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  {filter}
-                </button>
-              ))}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Filter Segmented Pills */}
+            <div className="flex items-center rounded-lg bg-zinc-950 border border-zinc-800/90 p-1 gap-0.5 h-9">
+              {(
+                [
+                  { id: 'all', label: 'All', dot: 'bg-zinc-400' },
+                  { id: 'extracted', label: 'Extracted', dot: 'bg-emerald-400' },
+                  { id: 'failed', label: 'Failed', dot: 'bg-rose-400' },
+                ] as const
+              ).map((tab) => {
+                const isActive = pageStatusFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setPageStatusFilter(tab.id)}
+                    className={`px-3 py-1 text-xs font-mono rounded-md font-medium transition-all duration-150 flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700/60 font-semibold'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${tab.dot} ${
+                        isActive ? 'opacity-100 scale-110 ring-2 ring-zinc-700' : 'opacity-60'
+                      }`}
+                    />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Search filter */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-zinc-500" />
+            {/* Interactive High-End Search Filter */}
+            <div className="relative flex items-center bg-zinc-950 border border-zinc-700 hover:border-zinc-500 focus-within:border-emerald-500/80 focus-within:ring-2 focus-within:ring-emerald-500/20 rounded-lg px-3 h-9 transition-all duration-200 w-full sm:w-64 md:w-72 lg:w-80 focus-within:w-full sm:focus-within:w-80 lg:focus-within:w-96 shadow-inner group">
+              {pagesLoading ? (
+                <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin shrink-0 mr-2.5" />
+              ) : (
+                <Search className="w-3.5 h-3.5 text-zinc-500 group-focus-within:text-emerald-400 shrink-0 mr-2.5 transition-colors" />
+              )}
+
               <input
+                ref={searchInputRef}
                 type="text"
-                placeholder="Filter URL..."
+                placeholder="Search URL, status, or error..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
-                className="bg-zinc-950 border border-zinc-800 rounded pl-8 pr-3 py-1 text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-700 w-40"
+                className="bg-transparent text-xs font-mono text-zinc-100 placeholder-zinc-500 focus:outline-none w-full"
               />
+
+              {searchFilter ? (
+                <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-1.5 py-0.5 rounded font-mono font-bold select-none">
+                    {pagesList.length} {pagesList.length === 1 ? 'match' : 'matches'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchFilter('');
+                      searchInputRef.current?.focus();
+                    }}
+                    className="p-1 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors"
+                    title="Clear filter (Esc)"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 select-none shadow-sm ml-1.5">
+                  /
+                </kbd>
+              )}
             </div>
           </div>
         </div>
@@ -465,8 +544,23 @@ export function SiteCrawlDashboard({
             <tbody className="divide-y divide-zinc-850">
               {pagesList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-zinc-500">
-                    No pages matching current filter.
+                  <td colSpan={5} className="px-3 py-8 text-center text-zinc-500">
+                    <div className="space-y-2">
+                      <div className="text-xs font-mono text-zinc-400">No pages matching current filter.</div>
+                      {(searchFilter || pageStatusFilter !== 'all') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchFilter('');
+                            setPageStatusFilter('all');
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 hover:text-emerald-300 px-3 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-emerald-800/60 transition-colors"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Reset all filters
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -521,9 +615,9 @@ export function SiteCrawlDashboard({
           size="sm"
           variant="outline"
           onClick={onReset}
-          className="font-mono text-xs gap-1.5 border-zinc-700"
+          icon={<RotateCcw className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+          className="font-mono text-xs border-zinc-700 hover:text-zinc-100 px-3.5 h-8 whitespace-nowrap"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
           Start New Site Crawl
         </Button>
       </div>

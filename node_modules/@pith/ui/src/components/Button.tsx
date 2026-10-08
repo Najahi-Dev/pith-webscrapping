@@ -19,7 +19,7 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    'inline-flex items-center justify-center font-mono text-xs uppercase tracking-wider font-semibold transition-all duration-150 rounded border select-none disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-[1px] focus:outline-none focus:ring-1 focus:ring-emerald-500';
+    'inline-flex flex-row items-center justify-center font-mono text-xs uppercase tracking-wider font-semibold transition-all duration-150 rounded border select-none disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-[1px] focus:outline-none focus:ring-1 focus:ring-emerald-500 whitespace-nowrap';
 
   const sizeStyles = {
     xs: 'h-6 px-2 gap-1 text-[10px]',
@@ -48,11 +48,11 @@ export const Button: React.FC<ButtonProps> = ({
       {...props}
     >
       {loading ? (
-        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
       ) : icon ? (
-        <span className="shrink-0">{icon}</span>
+        <span className="inline-flex shrink-0 items-center justify-center">{icon}</span>
       ) : null}
-      <span>{children}</span>
+      {children}
     </button>
   );
 };

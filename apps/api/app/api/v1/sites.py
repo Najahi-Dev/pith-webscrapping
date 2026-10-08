@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, HttpUrl
-from sqlalchemy import select, update, desc
+from sqlalchemy import select, update, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 import io
@@ -307,8 +307,15 @@ async def list_site_pages(
         query = query.where(SitePage.status == status_filter)
     if type_id:
         query = query.where(SitePage.type_id == type_id)
-    if search:
-        query = query.where(SitePage.url.ilike(f"%{search}%"))
+    if search and search.strip():
+        s = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                SitePage.url.ilike(s),
+                SitePage.error.ilike(s),
+                SitePage.status.ilike(s)
+            )
+        )
 
     query = query.order_by(SitePage.depth.asc(), SitePage.url.asc()).limit(limit).offset(offset)
     res = await db.execute(query)

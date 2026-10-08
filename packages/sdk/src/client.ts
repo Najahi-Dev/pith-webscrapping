@@ -45,16 +45,21 @@ export class PithClient {
         signal: controller.signal,
       });
 
+      const text = await response.text();
       if (!response.ok) {
         let errorDetail = `HTTP ${response.status} ${response.statusText}`;
         try {
-          const errJson = await response.json();
+          const errJson = text ? JSON.parse(text) : {};
           errorDetail = errJson.detail || errorDetail;
         } catch (_) {}
         throw new Error(`Pith API Error (${response.status}): ${errorDetail}`);
       }
 
-      return (await response.json()) as T;
+      try {
+        return text ? (JSON.parse(text) as T) : ({} as T);
+      } catch {
+        return text as unknown as T;
+      }
     } catch (err: any) {
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
         throw new Error(`Request timed out after ${this.timeout / 1000}s while waiting for target server response.`);
