@@ -4,57 +4,160 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg-app: #09090b;
-  --bg-surface: #121215;
-  --bg-card: #18181b;
-  --border-app: #27272a;
-  --border-subtle: #1f1f23;
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --accent-emerald: #10b981;
+/* --------------------------------------------------------------------------
+   DARK THEME (Default Pith Dev-Tool Theme)
+-------------------------------------------------------------------------- */
+:root,
+html.dark {
+  color-scheme: dark;
 }
 
-.light {
-  --bg-app: #fcfcfc;
-  --bg-surface: #f4f4f5;
-  --bg-card: #ffffff;
-  --border-app: #e4e4e7;
-  --border-subtle: #f1f1f4;
-  --text-primary: #09090b;
-  --text-secondary: #52525b;
-  --text-muted: #a1a1aa;
+html.dark body {
+  background-color: #09090b !important;
+  color: #fafafa !important;
 }
 
-body {
-  background-color: var(--bg-app);
-  color: var(--text-primary);
-  font-family: 'JetBrains Mono', monospace;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* --------------------------------------------------------------------------
+   LIGHT THEME (Clean High-Contrast Light Mode)
+-------------------------------------------------------------------------- */
+html.light {
+  color-scheme: light;
 }
 
-/* Custom Dev-Tool Scrollbars */
+html.light body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Surfaces & Card Containers */
+html.light [class*="bg-zinc-950"] {
+  background-color: #ffffff !important;
+}
+
+html.light [class*="bg-zinc-900"] {
+  background-color: #f1f5f9 !important;
+}
+
+html.light [class*="bg-zinc-800"] {
+  background-color: #e2e8f0 !important;
+}
+
+/* Status / Alert Pill Backgrounds in Light Mode */
+html.light [class*="bg-emerald-950"] {
+  background-color: #ecfdf5 !important;
+}
+html.light [class*="bg-amber-950"] {
+  background-color: #fffbeb !important;
+}
+html.light [class*="bg-rose-950"] {
+  background-color: #fff1f2 !important;
+}
+html.light [class*="bg-cyan-950"] {
+  background-color: #ecfeff !important;
+}
+
+/* Borders in Light Mode */
+html.light [class*="border-zinc-800"],
+html.light [class*="border-zinc-700"] {
+  border-color: #e2e8f0 !important;
+}
+html.light [class*="border-emerald-800"] {
+  border-color: #a7f3d0 !important;
+}
+html.light [class*="border-amber-800"] {
+  border-color: #fde68a !important;
+}
+html.light [class*="border-rose-800"] {
+  border-color: #fecdd3 !important;
+}
+html.light [class*="border-cyan-800"] {
+  border-color: #a5f3fc !important;
+}
+
+/* Divider Lines in Light Mode */
+html.light [class*="divide-zinc-800"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+/* Text Tokens in Light Mode */
+html.light .text-zinc-100,
+html.light .text-zinc-200 {
+  color: #0f172a !important;
+}
+
+html.light .text-zinc-300 {
+  color: #1e293b !important;
+}
+
+html.light .text-zinc-400 {
+  color: #475569 !important;
+}
+
+html.light .text-zinc-500 {
+  color: #64748b !important;
+}
+
+html.light .text-zinc-600 {
+  color: #94a3b8 !important;
+}
+
+/* Colored Text in Light Mode for Maximum Readability */
+html.light [class*="text-emerald-400"] {
+  color: #047857 !important;
+}
+html.light [class*="text-cyan-400"] {
+  color: #0e7490 !important;
+}
+html.light [class*="text-amber-400"] {
+  color: #b45309 !important;
+}
+html.light [class*="text-rose-400"] {
+  color: #be123c !important;
+}
+
+/* Form Controls in Light Mode */
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light textarea,
+html.light select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Header Backdrop in Light Mode */
+html.light header {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
   background: #27272a;
   border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }
 
-/* Code highlight tokens */
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 code {
   font-family: 'JetBrains Mono', monospace;
 }

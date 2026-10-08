@@ -10,14 +10,38 @@ export const Header: React.FC = () => {
   const pathname = usePathname();
   const [theme, setTheme] = React.useState<'dark' | 'light'>('dark');
 
+  React.useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem('pith_theme') as 'dark' | 'light' | null;
+      if (savedTheme) {
+        setTheme(savedTheme);
+        applyTheme(savedTheme);
+      } else {
+        applyTheme('dark');
+      }
+    } catch (e) {
+      console.warn('Theme storage unavailable', e);
+    }
+  }, []);
+
+  const applyTheme = (nextTheme: 'dark' | 'light') => {
+    const root = document.documentElement;
+    if (nextTheme === 'light') {
+      root.classList.remove('dark');
+      root.classList.add('light');
+    } else {
+      root.classList.remove('light');
+      root.classList.add('dark');
+    }
+  };
+
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
-    if (nextTheme === 'light') {
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-    }
+    applyTheme(nextTheme);
+    try {
+      localStorage.setItem('pith_theme', nextTheme);
+    } catch (e) {}
   };
 
   const navLinks = [
