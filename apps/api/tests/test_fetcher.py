@@ -5,7 +5,7 @@ import httpx
 from app.services.engine.fetcher import fetch_page, decode_response_html
 
 try:
-    import brotli
+    import brotli  # type: ignore
 except ImportError:
     brotli = None
 

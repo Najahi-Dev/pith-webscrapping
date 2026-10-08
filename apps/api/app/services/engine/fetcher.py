@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import httpx
 
 try:
-    import brotli
+    import brotli  # type: ignore
 except ImportError:
     brotli = None
 
