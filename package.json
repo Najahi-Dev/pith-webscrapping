@@ -13,6 +13,7 @@
     "build:sdk": "npm run build --workspace=packages/sdk",
     "build:ui": "npm run build --workspace=packages/ui",
     "build:all": "npm run build:sdk && npm run build:ui && npm run build:web",
+    "pith": "node packages/sdk/dist/cli.js",
     "test:api": "pytest apps/api/tests -v",
     "lint": "npm run lint --workspaces"
   },
