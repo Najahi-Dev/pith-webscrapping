@@ -4,11 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Terminal, Database, Bookmark, Code2, Settings, ShieldCheck, Sun, Moon, Coffee } from 'lucide-react';
+import { Terminal, Database, Bookmark, Code2, Settings, ShieldCheck, Sun, Moon, Coffee, HelpCircle } from 'lucide-react';
+import { GuideModal } from './guide-modal';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
   const [theme, setTheme] = React.useState<'dark' | 'light'>('dark');
+  const [isGuideOpen, setIsGuideOpen] = React.useState(false);
 
   React.useEffect(() => {
     try {
@@ -19,8 +21,14 @@ export const Header: React.FC = () => {
       } else {
         applyTheme('dark');
       }
+
+      // Check if first-time user to automatically open guide
+      const guideSeen = localStorage.getItem('pith_guide_seen');
+      if (!guideSeen) {
+        setIsGuideOpen(true);
+      }
     } catch (e) {
-      console.warn('Theme storage unavailable', e);
+      console.warn('Storage unavailable', e);
     }
   }, []);
 
@@ -96,7 +104,18 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Right Status & Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* Guide Button */}
+          <button
+            type="button"
+            onClick={() => setIsGuideOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-emerald-400 border border-zinc-800 hover:border-zinc-700 rounded text-xs font-semibold transition-all group shadow-sm"
+            title="Open Step-by-Step Guide"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span className="hidden sm:inline">Guide</span>
+          </button>
+
           <a
             href="https://buymeacoffee.com/najahi"
             target="_blank"
@@ -123,6 +142,9 @@ export const Header: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Guide Interactive Modal */}
+      <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </header>
   );
 };
