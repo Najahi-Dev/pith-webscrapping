@@ -15,6 +15,8 @@ import {
   Sliders,
   RotateCcw,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Button } from '@pith/ui';
 
@@ -57,6 +59,7 @@ export default function SettingsPage() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [showAiApiKey, setShowAiApiKey] = useState(false);
 
   // Settings State
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
@@ -460,13 +463,27 @@ export default function SettingsPage() {
 
             <div className="space-y-1">
               <label className="text-[11px] text-zinc-400 uppercase font-semibold">API Key</label>
-              <input
-                type="password"
-                placeholder="sk-..."
-                value={settings.aiApiKey}
-                onChange={(e) => updateSetting('aiApiKey', e.target.value)}
-                className="w-full h-8 px-2.5 bg-zinc-950 text-xs text-zinc-200 border border-zinc-700 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
+              <div className="relative flex items-center">
+                <input
+                  type={showAiApiKey ? 'text' : 'password'}
+                  placeholder="sk-..."
+                  value={settings.aiApiKey}
+                  onChange={(e) => updateSetting('aiApiKey', e.target.value)}
+                  className="w-full h-8 pl-2.5 pr-8 bg-zinc-950 text-xs text-zinc-200 border border-zinc-700 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAiApiKey(!showAiApiKey)}
+                  className="absolute right-2 p-1 text-zinc-400 hover:text-zinc-200 transition-colors"
+                  title={showAiApiKey ? 'Hide API key' : 'Show API key'}
+                >
+                  {showAiApiKey ? (
+                    <EyeOff className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5 text-zinc-400" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

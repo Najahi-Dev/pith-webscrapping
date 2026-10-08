@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Search, ToggleLeft, ToggleRight, FileSpreadsheet, FileJson, FileCode, Check } from 'lucide-react';
+import { Download, Search, ToggleLeft, ToggleRight, FileSpreadsheet, FileJson, FileCode, Check, X } from 'lucide-react';
 import { Button } from './Button';
 
 export interface DataPreviewTableProps {
@@ -84,7 +84,7 @@ export const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-zinc-900/60 border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-100">{title}</span>
-          <span className="px-2 py-0.5 text-[10px] bg-zinc-800 border border-zinc-700 rounded text-zinc-400">
+          <span className="px-2 py-0.5 text-[10px] bg-zinc-800 border border-zinc-700 rounded text-zinc-400 font-semibold">
             {filteredRows.length} rows ({columns.length} columns)
           </span>
 
@@ -105,20 +105,40 @@ export const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
         </div>
 
         {/* Search & Export Actions */}
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2" />
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Enhanced Search Input */}
+          <div className="relative flex items-center group">
+            <Search className="w-3.5 h-3.5 text-zinc-400 group-focus-within:text-emerald-400 absolute left-2.5 pointer-events-none transition-colors" />
             <input
               type="text"
-              placeholder="Filter results..."
+              placeholder="Search table rows..."
               value={filterQuery}
               onChange={(e) => {
                 setFilterQuery(e.target.value);
                 setPage(1);
               }}
-              className="h-7.5 pl-7 pr-2.5 text-xs bg-zinc-900 text-zinc-100 placeholder:text-zinc-600 border border-zinc-700/80 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="h-8 pl-8 pr-8 text-xs bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 border border-zinc-700 hover:border-zinc-600 rounded focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 w-44 sm:w-56 focus:w-64 transition-all shadow-inner"
             />
+            {filterQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterQuery('');
+                  setPage(1);
+                }}
+                className="absolute right-2 p-0.5 text-zinc-400 hover:text-zinc-100 rounded hover:bg-zinc-800 transition-colors"
+                title="Clear filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
+
+          {filterQuery && (
+            <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 rounded font-semibold">
+              {filteredRows.length} found
+            </span>
+          )}
 
           {onExport && (
             <div className="flex items-center gap-1">
