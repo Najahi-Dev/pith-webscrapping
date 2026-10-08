@@ -127,7 +127,8 @@ async def execute_extraction_job(
             }
             await session.commit()
 
-            fetch_res = await fetch_page(current_url, method=method)
+            custom_hdrs = options.get("custom_headers")
+            fetch_res = await fetch_page(current_url, method=method, custom_headers=custom_hdrs)
             if fetch_res.error:
                 if pages_crawled == 1:
                     raise Exception(f"Failed to fetch initial page: {fetch_res.error}")

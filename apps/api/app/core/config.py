@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # Scraping safety limits
     MAX_PAGE_LIMIT: int = int(os.getenv("MAX_PAGE_LIMIT", "50"))
     MAX_PAYLOAD_BYTES: int = int(os.getenv("MAX_PAYLOAD_BYTES", "15728640"))  # 15 MB
-    REQUEST_TIMEOUT_SECONDS: float = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "15.0"))
+    REQUEST_TIMEOUT_SECONDS: float = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "30.0"))
     DEFAULT_RATE_LIMIT_DELAY: float = float(os.getenv("DEFAULT_RATE_LIMIT_DELAY", "0.5"))
     
     # AI Optional Settings

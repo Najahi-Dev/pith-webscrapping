@@ -22,6 +22,7 @@ class CreateJobRequest(BaseModel):
     pagination: Optional[Dict[str, Any]] = None  # {"enabled": True, "max_pages": 5}
     cleaning_rules: Optional[Dict[str, Any]] = None
     key_field: Optional[str] = None
+    custom_headers: Optional[Dict[str, str]] = None
 
 
 class JobResponse(BaseModel):
@@ -68,7 +69,8 @@ async def create_job(
             "normalize_dates": True,
             "make_urls_absolute": True
         },
-        "key_field": req.key_field
+        "key_field": req.key_field,
+        "custom_headers": req.custom_headers
     }
 
     job = Job(

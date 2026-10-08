@@ -11,15 +11,37 @@ function printBanner() {
   console.log('\x1b[32m[pith]\x1b[0m Intelligent Web Scraping & Detection System v1.0.0');
 }
 
-async function handleCheck(url: string) {
+function parseCustomHeaders(flags: Record<string, string>): Record<string, string> | undefined {
+  const headerStr = flags['--header'] || flags['-H'];
+  if (!headerStr) return undefined;
+  const headers: Record<string, string> = {};
+  const pairs = headerStr.split(';;');
+  for (const p of pairs) {
+    const splitIdx = p.indexOf(':');
+    if (splitIdx !== -1) {
+      const k = p.slice(0, splitIdx).trim();
+      const v = p.slice(splitIdx + 1).trim();
+      if (k) headers[k] = v;
+    }
+  }
+  return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
+async function handleCheck(url: string, flags: Record<string, string>) {
   if (!url) {
     console.error('\x1b[31mError:\x1b[0m URL is required. Usage: pith check <url>');
     process.exit(1);
   }
-  console.log(`\x1b[90m→ Checking scrapability and safety for:\x1b[0m ${url}\n`);
+  const customHeaders = parseCustomHeaders(flags);
+  console.log(`\x1b[90m→ Checking scrapability and safety for:\x1b[0m ${url}`);
+  if (customHeaders) {
+    console.log(`\x1b[90m→ Using ${Object.keys(customHeaders).length} custom request header(s)\x1b[0m\n`);
+  } else {
+    console.log('');
+  }
 
   try {
-    const res = await pith.check(url);
+    const res = await pith.check(url, customHeaders);
     const scoreColor = res.score >= 75 ? '\x1b[32m' : res.score >= 45 ? '\x1b[33m' : '\x1b[31m';
     
     console.log(`Score:  ${scoreColor}${res.score}/100 [${res.level.toUpperCase()}]\x1b[0m`);
@@ -40,7 +62,7 @@ async function handleCheck(url: string) {
   }
 }
 
-async function handleDetect(url: string) {
+async function handleDetect(url: string, flags: Record<string, string>) {
   if (!url) {
     console.error('\x1b[31mError:\x1b[0m URL is required. Usage: pith detect <url>');
     process.exit(1);
@@ -48,7 +70,9 @@ async function handleDetect(url: string) {
   console.log(`\x1b[90m→ Discovering data patterns for:\x1b[0m ${url}\n`);
 
   try {
-    const res = await pith.detect(url);
+    const res = await pith.detect(url, {
+      method: (flags['--method'] as any) || 'http',
+    });
     console.log(`Found \x1b[32m${res.total_categories}\x1b[0m categories and structures:\n`);
 
     res.categories.forEach((cat, idx) => {
@@ -72,6 +96,7 @@ async function handleRun(target: string, flags: Record<string, string>) {
     process.exit(1);
   }
 
+  const customHeaders = parseCustomHeaders(flags);
   const isUrl = target.startsWith('http://') || target.startsWith('https://');
   console.log(`\x1b[90m→ Starting extraction for:\x1b[0m ${target}`);
 
@@ -86,6 +111,7 @@ async function handleRun(target: string, flags: Record<string, string>) {
           enabled: flags['--pages'] ? true : false,
           max_pages: flags['--pages'] ? parseInt(flags['--pages'], 10) : 1,
         },
+        custom_headers: customHeaders,
       });
     } else {
       const res = await pith.runRecipe(target);
@@ -167,20 +193,18 @@ async function main() {
     printBanner();
     console.log(`
 Usage:
-  pith check <url>                    Evaluate URL scrapability & safety
-  pith detect <url>                   Discover tables, cards, patterns & schema
+  pith check <url> [options]          Evaluate URL scrapability & safety
+  pith detect <url> [options]         Discover tables, cards, patterns & schema
   pith run <url|recipe_id> [options]  Run extraction job and display results
   pith export <job_id> [options]      Export extracted dataset to file
 
-Options for 'run':
+Options:
+  -H, --header <key:val>       Pass custom request headers (e.g. -H "Authorization: Bearer <key>")
   --method <http|playwright>   Select extraction engine (default: http)
   --category <category_id>     Target specific detected category ID
   --pages <num>                Number of pages to follow (default: 1)
   --output, -o <file>          Save output to file (.json or .csv)
-
-Options for 'export':
-  --format, -f <csv|json|xlsx> Output format (default: json)
-  --output, -o <file>          Custom output filename
+  --format, -f <csv|json|xlsx> Output format for export (default: json)
 `);
     process.exit(0);
   }
@@ -191,10 +215,10 @@ Options for 'export':
 
   switch (command) {
     case 'check':
-      await handleCheck(target);
+      await handleCheck(target, flags);
       break;
     case 'detect':
-      await handleDetect(target);
+      await handleDetect(target, flags);
       break;
     case 'run':
       await handleRun(target, flags);

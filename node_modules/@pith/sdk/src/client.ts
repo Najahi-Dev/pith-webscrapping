@@ -18,7 +18,7 @@ export class PithClient {
   constructor(options: PithClientOptions = {}) {
     this.baseUrl = (options.baseUrl || process.env.PITH_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
     this.apiKey = options.apiKey || process.env.PITH_API_KEY;
-    this.timeout = options.timeout || 30000;
+    this.timeout = options.timeout || 45000;
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -50,6 +50,11 @@ export class PithClient {
       }
 
       return (await response.json()) as T;
+    } catch (err: any) {
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        throw new Error(`Request timed out after ${this.timeout / 1000}s while waiting for target server response.`);
+      }
+      throw err;
     } finally {
       clearTimeout(timeoutId);
     }

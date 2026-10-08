@@ -18,6 +18,7 @@ class DetectRequest(BaseModel):
     url: str
     method: Optional[str] = "http"  # "http" or "playwright"
     html_override: Optional[str] = None
+    custom_headers: Optional[Dict[str, str]] = None
 
 
 class CategoryDetectionResult(BaseModel):
@@ -52,7 +53,7 @@ async def detect_page_data(req: DetectRequest) -> DetectResponse:
     if req.html_override:
         html = req.html_override
     else:
-        fetch_res = await fetch_page(target_url, method=req.method or "http")
+        fetch_res = await fetch_page(target_url, method=req.method or "http", custom_headers=req.custom_headers)
         if fetch_res.error:
             raise HTTPException(status_code=400, detail=f"Failed to fetch page: {fetch_res.error}")
         html = fetch_res.html

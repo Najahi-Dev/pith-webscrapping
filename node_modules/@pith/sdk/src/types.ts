@@ -90,6 +90,7 @@ export interface CreateJobParams {
   pagination?: PaginationConfig;
   cleaning_rules?: CleaningRules;
   key_field?: string;
+  custom_headers?: Record<string, string>;
 }
 
 export interface JobProgress {
