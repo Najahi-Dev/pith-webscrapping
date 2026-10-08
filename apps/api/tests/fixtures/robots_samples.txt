@@ -1,0 +1,13 @@
+# Sample Robots.txt for testing Pith engine
+User-agent: PithBot
+Disallow: /admin/
+Disallow: /private/
+Disallow: /checkout
+Allow: /catalog/
+Crawl-delay: 2.0
+
+User-agent: *
+Disallow: /internal/
+Disallow: /api/secret/
+Crawl-delay: 5.0
+Sitemap: https://example.com/sitemap.xml

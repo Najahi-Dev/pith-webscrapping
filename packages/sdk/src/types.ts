@@ -1,0 +1,177 @@
+export interface ChecklistItem {
+  key: string;
+  label: string;
+  passed: boolean;
+  status: 'pass' | 'fail' | 'warn';
+  details: string;
+}
+
+export interface CheckResponse {
+  url: string;
+  allowed: boolean;
+  score: number;
+  level: 'easy' | 'medium' | 'hard';
+  recommended_method: 'http' | 'playwright';
+  reasons: string[];
+  checklist: ChecklistItem[];
+  resolved_ip?: string;
+  robots: {
+    allowed: boolean;
+    status_code?: number;
+    crawl_delay?: number;
+    sitemaps: string[];
+    matching_rule?: string;
+    reason?: string;
+  };
+  policy: {
+    found_terms_link: boolean;
+    terms_urls: string[];
+    scraping_warnings: string[];
+    has_scraping_restrictions: boolean;
+    summary: string;
+  };
+  page_metrics: {
+    status_code: number;
+    duration_ms: number;
+    size_bytes: number;
+    method_used: string;
+    has_json_ld: boolean;
+    has_opengraph: boolean;
+  };
+}
+
+export interface CategoryDetectionResult {
+  id: string;
+  name: string;
+  description: string;
+  count: number;
+  fields: string[];
+  sample_rows: Record<string, any>[];
+  selector?: string;
+  category_type: 'table' | 'repeating_items' | 'links' | 'images' | 'text' | 'structured_data' | 'entities';
+}
+
+export interface DetectResponse {
+  url: string;
+  total_categories: number;
+  categories: CategoryDetectionResult[];
+  auto_patterns: any[];
+  meta: Record<string, any>;
+}
+
+export interface PreviewResponse {
+  url: string;
+  sanitized_html: string;
+  content_type: string;
+}
+
+export interface CleaningRules {
+  trim_whitespace?: boolean;
+  remove_duplicates?: boolean;
+  normalize_prices?: boolean;
+  normalize_dates?: boolean;
+  make_urls_absolute?: boolean;
+}
+
+export interface PaginationConfig {
+  enabled: boolean;
+  max_pages: number;
+}
+
+export interface CreateJobParams {
+  url: string;
+  method?: 'http' | 'playwright';
+  recipe_id?: string;
+  category_id?: string;
+  selectors?: {
+    container?: string;
+    fields: Record<string, string | { selector: string; attribute?: string }>;
+  };
+  pagination?: PaginationConfig;
+  cleaning_rules?: CleaningRules;
+  key_field?: string;
+}
+
+export interface JobProgress {
+  current_page: number;
+  max_pages: number;
+  rows_extracted: number;
+  percent: number;
+  message: string;
+}
+
+export interface JobResponse {
+  id: string;
+  url: string;
+  recipe_id?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  method: string;
+  progress: JobProgress;
+  columns: string[];
+  row_count: number;
+  duration_ms: number;
+  error_message?: string;
+  created_at?: string;
+  completed_at?: string;
+  results?: Record<string, any>[];
+  raw_results?: Record<string, any>[];
+}
+
+export interface RecipeCreateParams {
+  name: string;
+  description?: string;
+  url: string;
+  method?: 'http' | 'playwright';
+  category_id?: string;
+  selectors?: Record<string, any>;
+  pagination?: PaginationConfig;
+  cleaning_rules?: CleaningRules;
+  schedule_cron?: string;
+  alert_rules?: Record<string, any>;
+  api_key_required?: boolean;
+}
+
+export interface RecipeResponse {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  url: string;
+  method: string;
+  category_id?: string;
+  selectors: Record<string, any>;
+  pagination: PaginationConfig;
+  cleaning_rules: CleaningRules;
+  schedule_cron?: string;
+  alert_rules: Record<string, any>;
+  is_active: boolean;
+  api_key_required: boolean;
+  last_run_at?: string;
+  last_status?: string;
+  last_row_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChangeRecord {
+  id: string;
+  job_id?: string;
+  added_count: number;
+  removed_count: number;
+  modified_count: number;
+  diff_summary: {
+    added_rows: any[];
+    removed_rows: any[];
+    modified_rows: any[];
+    alerts: string[];
+  };
+  alert_triggered: boolean;
+  alert_messages: string[];
+  created_at?: string;
+}
+
+export interface PithClientOptions {
+  baseUrl?: string;
+  apiKey?: string;
+  timeout?: number;
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@pith/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript SDK and CLI for Pith web scraping system",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "pith": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "pith",
+    "web-scraping",
+    "crawler",
+    "sdk",
+    "cli"
+  ],
+  "author": "Pith Systems",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

@@ -1,0 +1,85 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Terminal, Database, Bookmark, Code2, Settings, ShieldCheck, Sun, Moon } from 'lucide-react';
+
+export const Header: React.FC = () => {
+  const pathname = usePathname();
+  const [theme, setTheme] = React.useState<'dark' | 'light'>('dark');
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    if (nextTheme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+  };
+
+  const navLinks = [
+    { href: '/', label: 'Studio', icon: <Terminal className="w-3.5 h-3.5" /> },
+    { href: '/recipes', label: 'Recipes', icon: <Bookmark className="w-3.5 h-3.5" /> },
+    { href: '/api-docs', label: 'API & SDK', icon: <Code2 className="w-3.5 h-3.5" /> },
+    { href: '/settings', label: 'Config', icon: <Settings className="w-3.5 h-3.5" /> },
+  ];
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur font-mono select-none">
+      <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+        {/* Brand */}
+        <div className="flex items-center gap-6">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-7 h-7 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm group-hover:border-emerald-500 transition-colors">
+              P
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-bold text-sm tracking-wider text-zinc-100 uppercase">pith</span>
+              <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">v1.0</span>
+            </div>
+          </Link>
+
+          {/* Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-all ${
+                    isActive
+                      ? 'bg-zinc-800 text-emerald-400 border border-zinc-700 shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+                  }`}
+                >
+                  {link.icon}
+                  <span>{link.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Right Status & Controls */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded text-[11px] text-zinc-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>API Online</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-2 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+};

@@ -1,0 +1,30 @@
+{
+  "name": "pith-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "pith - High-density intelligent web scraping system with Next.js UI, FastAPI backend, TypeScript SDK & CLI",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:sdk": "npm run build --workspace=packages/sdk",
+    "build:ui": "npm run build --workspace=packages/ui",
+    "build:all": "npm run build:sdk && npm run build:ui && npm run build:web",
+    "test:api": "pytest apps/api/tests -v",
+    "lint": "npm run lint --workspaces"
+  },
+  "keywords": [
+    "scraper",
+    "web-scraping",
+    "crawler",
+    "fastapi",
+    "nextjs",
+    "typescript-sdk",
+    "data-extraction"
+  ],
+  "author": "Pith Systems",
+  "license": "MIT"
+}
