@@ -1,5 +1,13 @@
 import pytest
-from app.services.engine.fetcher import fetch_page
+import gzip
+import zlib
+import httpx
+from app.services.engine.fetcher import fetch_page, decode_response_html
+
+try:
+    import brotli
+except ImportError:
+    brotli = None
 
 
 @pytest.mark.asyncio
@@ -16,3 +24,22 @@ async def test_fetch_page_valid_public():
     assert res.status_code == 200
     assert len(res.html) > 0
     assert res.duration_ms > 0
+
+
+def test_decode_response_html_gzip():
+    sample = "<html><body><h1>Hello Gzip</h1></body></html>"
+    compressed = gzip.compress(sample.encode("utf-8"))
+    resp = httpx.Response(200, content=compressed, headers={"content-encoding": "gzip"})
+    decoded = decode_response_html(resp)
+    assert "Hello Gzip" in decoded
+
+
+def test_decode_response_html_brotli():
+    if brotli is None:
+        pytest.skip("brotli not installed")
+    sample = "<html><body><h1>Hello Brotli</h1></body></html>"
+    compressed = brotli.compress(sample.encode("utf-8"))
+    resp = httpx.Response(200, content=compressed, headers={"content-encoding": "br"})
+    decoded = decode_response_html(resp)
+    assert "Hello Brotli" in decoded
+

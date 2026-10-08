@@ -12,6 +12,7 @@ from app.api.v1.recipes import router as recipes_router
 from app.api.v1.public_data import router as public_data_router
 from app.api.v1.ai import router as ai_router
 from app.api.v1.sites import router as sites_router
+from app.api.v1.proxies import router as proxies_router
 
 
 @asynccontextmanager
@@ -53,6 +54,7 @@ app.include_router(recipes_router, prefix=settings.API_V1_STR, tags=["Recipes & 
 app.include_router(public_data_router, prefix=settings.API_V1_STR, tags=["Public API & Keys"])
 app.include_router(ai_router, prefix=settings.API_V1_STR, tags=["AI Suggestions"])
 app.include_router(sites_router, prefix=settings.API_V1_STR, tags=["Site Mode Crawling"])
+app.include_router(proxies_router, prefix=settings.API_V1_STR, tags=["Stealth & Proxy Pool"])
 
 
 @app.get("/", tags=["Root"])

@@ -17,8 +17,15 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Network,
+  Globe,
+  Radio,
+  Zap,
+  Activity,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@pith/ui';
+import { useToast } from '@/context';
 
 const DEFAULT_USER_AGENT = 'PithBot/1.0 (+https://github.com/pith-systems/pith; contact: bot@pith.dev)';
 
@@ -35,6 +42,15 @@ interface SystemSettings {
   aiEnabled: boolean;
   aiProvider: string;
   aiApiKey: string;
+  // Stealth & Proxy
+  stealthEnabled: boolean;
+  proxiesEnabled: boolean;
+  proxyListText: string;
+  proxyStrategy: 'round-robin' | 'least-failed' | 'random' | 'sticky-domain';
+  // CAPTCHA Solver
+  captchaSolverEnabled: boolean;
+  captchaProvider: '2captcha' | 'capmonster';
+  captchaApiKey: string;
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -50,9 +66,17 @@ const DEFAULT_SETTINGS: SystemSettings = {
   aiEnabled: false,
   aiProvider: 'openai',
   aiApiKey: '',
+  stealthEnabled: true,
+  proxiesEnabled: false,
+  proxyListText: '',
+  proxyStrategy: 'round-robin',
+  captchaSolverEnabled: false,
+  captchaProvider: '2captcha',
+  captchaApiKey: '',
 };
 
 export default function SettingsPage() {
+  const toast = useToast();
   const [keys, setKeys] = useState<any[]>([]);
   const [newKeyName, setNewKeyName] = useState('');
   const [loadingKeys, setLoadingKeys] = useState(false);
@@ -60,12 +84,20 @@ export default function SettingsPage() {
   const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showAiApiKey, setShowAiApiKey] = useState(false);
+  const [showCaptchaApiKey, setShowCaptchaApiKey] = useState(false);
 
   // Settings State
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+
+  // Proxy Pool State
+  const [proxyPoolStatus, setProxyPoolStatus] = useState<any>(null);
+  const [loadingProxyPool, setLoadingProxyPool] = useState(false);
+  const [testProxyInput, setTestProxyInput] = useState('');
+  const [testingProxy, setTestingProxy] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   // Load Settings from LocalStorage
   useEffect(() => {
@@ -77,6 +109,25 @@ export default function SettingsPage() {
     } catch (e) {
       console.warn('Failed to load settings from storage', e);
     }
+  }, []);
+
+  const fetchProxyPool = async () => {
+    try {
+      setLoadingProxyPool(true);
+      const resp = await fetch('/api/v1/proxies');
+      if (resp.ok) {
+        const data = await resp.json();
+        setProxyPoolStatus(data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch proxy pool status', err);
+    } finally {
+      setLoadingProxyPool(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProxyPool();
   }, []);
 
   const updateSetting = <K extends keyof SystemSettings>(key: K, value: SystemSettings[K]) => {
@@ -91,11 +142,86 @@ export default function SettingsPage() {
       localStorage.setItem('pith_system_settings', JSON.stringify(settings));
       setIsDirty(false);
       setSaveSuccess(true);
+      toast.success('Settings Saved', 'System configurations updated successfully.');
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e) {
       console.error('Failed to save settings', e);
+      toast.error('Save Failed', 'Could not persist settings.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSyncProxiesToBackend = async () => {
+    const lines = settings.proxyListText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length === 0) {
+      toast.warning('No Proxies Provided', 'Enter at least one proxy URL in the list.');
+      return;
+    }
+
+    try {
+      const resp = await fetch('/api/v1/proxies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proxies: lines }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setProxyPoolStatus(data.pool);
+        toast.success('Proxies Synced', `Added ${data.added} proxies into active rotation.`);
+      } else {
+        toast.error('Sync Error', 'Failed to register proxies in backend pool.');
+      }
+    } catch (err: any) {
+      toast.error('Sync Failed', err.message);
+    }
+  };
+
+  const handleTestProxy = async () => {
+    if (!testProxyInput.trim()) {
+      toast.warning('Empty Proxy', 'Please enter a proxy URL to test (e.g. http://host:port).');
+      return;
+    }
+
+    setTestingProxy(true);
+    setTestResult(null);
+    try {
+      const resp = await fetch('/api/v1/proxies/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proxy_url: testProxyInput.trim() }),
+      });
+      const data = await resp.json();
+      setTestResult(data);
+      if (data.ok) {
+        toast.success('Proxy Online', `Connected via IP ${data.ip} in ${data.latency_ms}ms!`);
+      } else {
+        toast.error('Proxy Connection Failed', data.error || 'Connection timed out');
+      }
+    } catch (err: any) {
+      setTestResult({ ok: false, error: err.message });
+      toast.error('Test Failed', err.message);
+    } finally {
+      setTestingProxy(false);
+    }
+  };
+
+  const handleDeleteProxy = async (proxyUrl: string) => {
+    try {
+      const resp = await fetch(`/api/v1/proxies?proxy_url=${encodeURIComponent(proxyUrl)}`, {
+        method: 'DELETE',
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setProxyPoolStatus(data.pool);
+        toast.info('Proxy Removed', `Removed ${proxyUrl} from rotation pool.`);
+      }
+    } catch (err: any) {
+      toast.error('Delete Failed', err.message);
     }
   };
 
@@ -420,7 +546,220 @@ export default function SettingsPage() {
         />
       </div>
 
-      {/* Section 5: Optional AI Field Naming */}
+      {/* Section 5: Stealth & Anti-Bot Evasion */}
+      <div className="p-5 bg-zinc-900/40 border border-zinc-800 rounded space-y-4">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-2">
+            <Radio className="w-4 h-4 text-emerald-400" />
+            Browser Fingerprint Spoofing & Stealth Evasion
+          </h2>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Playwright stealth engine masks automation flags, randomizes Canvas/WebGL fingerprints, and suppresses WebRTC leaks.
+          </p>
+        </div>
+
+        <div className="space-y-2 pt-1 text-xs text-zinc-300">
+          <label className="flex items-center gap-2.5 cursor-pointer p-2.5 bg-zinc-950/60 border border-zinc-800/80 rounded hover:border-zinc-700">
+            <input
+              type="checkbox"
+              checked={settings.stealthEnabled}
+              onChange={(e) => updateSetting('stealthEnabled', e.target.checked)}
+              className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-emerald-500 focus:ring-emerald-500"
+            />
+            <div className="space-y-0.5">
+              <div className="font-semibold text-zinc-200">Enable Advanced Stealth Mode</div>
+              <div className="text-[11px] text-zinc-500">
+                Removes navigator.webdriver, spoofs window.chrome, randomizes unmasked WebGL renderers and Client Hints (Sec-Ch-Ua).
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Section 6: Proxy Pool & Rotation Management */}
+      <div className="p-5 bg-zinc-900/40 border border-zinc-800 rounded space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-2">
+              <Network className="w-4 h-4 text-sky-400" />
+              Proxy Pool & Automatic Rotation Manager
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Rotates requests across residential/datacenter proxies on HTTP 429/403 with automatic cooldown.
+            </p>
+          </div>
+
+          {proxyPoolStatus && (
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-400">
+                {proxyPoolStatus.available_proxies} / {proxyPoolStatus.total_proxies} Active
+              </span>
+              {proxyPoolStatus.in_cooldown > 0 && (
+                <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-800 text-amber-400">
+                  {proxyPoolStatus.in_cooldown} in cooldown
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[11px] text-zinc-400 uppercase font-semibold">Rotation Strategy</label>
+              <select
+                value={settings.proxyStrategy}
+                onChange={(e) => updateSetting('proxyStrategy', e.target.value as any)}
+                className="w-full h-8 px-2 bg-zinc-950 text-xs text-zinc-200 border border-zinc-700 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="round-robin">Round Robin (Even Distribution)</option>
+                <option value="least-failed">Least Failed (Prioritize Health)</option>
+                <option value="random">Random Selection</option>
+                <option value="sticky-domain">Sticky per Domain</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] text-zinc-400 uppercase font-semibold">
+                Proxy List (One per line: http://user:pass@host:port or socks5://host:port)
+              </label>
+              <Button
+                type="button"
+                size="xs"
+                variant="primary"
+                onClick={handleSyncProxiesToBackend}
+                className="text-[10px] h-6"
+              >
+                Sync to Active Engine
+              </Button>
+            </div>
+            <textarea
+              rows={3}
+              placeholder="http://127.0.0.1:8080&#10;http://user:pass@proxy.example.com:3128&#10;socks5://10.0.0.1:1080"
+              value={settings.proxyListText}
+              onChange={(e) => updateSetting('proxyListText', e.target.value)}
+              className="w-full p-2 bg-zinc-950 text-xs text-zinc-200 border border-zinc-700 rounded font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Live Proxy Ping Tester */}
+          <div className="p-3.5 rounded bg-zinc-950 border border-zinc-800 space-y-2">
+            <div className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              Live Proxy Connectivity Tester
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="http://user:pass@proxy-server.com:8080"
+                value={testProxyInput}
+                onChange={(e) => setTestProxyInput(e.target.value)}
+                className="flex-1 h-8 px-2.5 bg-zinc-900 text-xs text-zinc-200 border border-zinc-700 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={handleTestProxy}
+                loading={testingProxy}
+                className="h-8 px-3 border-zinc-700 text-zinc-300"
+              >
+                Test Ping
+              </Button>
+            </div>
+
+            {testResult && (
+              <div
+                className={`p-2 rounded text-xs font-mono border ${
+                  testResult.ok
+                    ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-400'
+                    : 'bg-rose-950/40 border-rose-800/60 text-rose-400'
+                }`}
+              >
+                {testResult.ok ? (
+                  <div className="flex items-center justify-between">
+                    <span>✓ Connected! Resolved External IP: <strong>{testResult.ip}</strong></span>
+                    <span>Latency: {testResult.latency_ms}ms</span>
+                  </div>
+                ) : (
+                  <div>✗ Test failed: {testResult.error}</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Section 7: Automated CAPTCHA & Turnstile Solvers */}
+      <div className="p-5 bg-zinc-900/40 border border-zinc-800 rounded space-y-4">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-amber-400" />
+            Automated CAPTCHA & Turnstile Solvers
+          </h2>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Automatically intercepts Cloudflare Turnstile, reCAPTCHA v2/v3, and hCaptcha challenges during crawls.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="captcha_toggle"
+            checked={settings.captchaSolverEnabled}
+            onChange={(e) => updateSetting('captchaSolverEnabled', e.target.checked)}
+            className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-emerald-500 focus:ring-emerald-500"
+          />
+          <label htmlFor="captcha_toggle" className="text-xs text-zinc-300 font-semibold cursor-pointer select-none">
+            Enable Automated CAPTCHA Solving Hook
+          </label>
+        </div>
+
+        {settings.captchaSolverEnabled && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <div className="space-y-1">
+              <label className="text-[11px] text-zinc-400 uppercase font-semibold">Solver Provider</label>
+              <select
+                value={settings.captchaProvider}
+                onChange={(e) => updateSetting('captchaProvider', e.target.value as any)}
+                className="w-full h-8 px-2 bg-zinc-950 text-xs text-zinc-200 border border-zinc-700 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="2captcha">2Captcha API</option>
+                <option value="capmonster">CapMonster Cloud API</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] text-zinc-400 uppercase font-semibold">Solver API Key</label>
+              <div className="relative flex items-center">
+                <input
+                  type={showCaptchaApiKey ? 'text' : 'password'}
+                  placeholder="Solver client key..."
+                  value={settings.captchaApiKey}
+                  onChange={(e) => updateSetting('captchaApiKey', e.target.value)}
+                  className="w-full h-8 pl-2.5 pr-8 bg-zinc-950 text-xs text-zinc-200 border border-zinc-700 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCaptchaApiKey(!showCaptchaApiKey)}
+                  className="absolute right-2 p-1 text-zinc-400 hover:text-zinc-200 transition-colors"
+                  title={showCaptchaApiKey ? 'Hide key' : 'Show key'}
+                >
+                  {showCaptchaApiKey ? (
+                    <EyeOff className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5 text-zinc-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Section 8: Optional AI Field Naming */}
       <div className="p-5 bg-zinc-900/40 border border-zinc-800 rounded space-y-4">
         <div>
           <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-2">
@@ -524,3 +863,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+

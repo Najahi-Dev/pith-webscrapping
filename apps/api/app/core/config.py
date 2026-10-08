@@ -45,6 +45,18 @@ class Settings(BaseSettings):
     AI_PROVIDER: Optional[str] = os.getenv("AI_PROVIDER", None)
     AI_API_KEY: Optional[str] = os.getenv("AI_API_KEY", None)
     AI_MODEL: Optional[str] = os.getenv("AI_MODEL", "gpt-4o-mini")
+    
+    # Stealth & Proxy Management
+    ENABLE_STEALTH_MODE: bool = os.getenv("ENABLE_STEALTH_MODE", "true").lower() == "true"
+    PROXY_POOL: List[str] = [p.strip() for p in os.getenv("PROXY_POOL", "").split(",") if p.strip()]
+    PROXY_ROTATION_STRATEGY: str = os.getenv("PROXY_ROTATION_STRATEGY", "round-robin")
+    MAX_PROXY_FAILURES: int = int(os.getenv("MAX_PROXY_FAILURES", "3"))
+    PROXY_COOLDOWN_SECONDS: int = int(os.getenv("PROXY_COOLDOWN_SECONDS", "60"))
+    
+    # Automated CAPTCHA Solver Settings
+    CAPTCHA_SOLVER_PROVIDER: Optional[str] = os.getenv("CAPTCHA_SOLVER_PROVIDER", None)
+    CAPTCHA_SOLVER_API_KEY: Optional[str] = os.getenv("CAPTCHA_SOLVER_API_KEY", None)
+    CAPTCHA_TIMEOUT_SECONDS: int = int(os.getenv("CAPTCHA_TIMEOUT_SECONDS", "60"))
 
 
 settings = Settings()
