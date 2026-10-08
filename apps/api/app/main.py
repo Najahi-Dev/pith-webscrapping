@@ -56,6 +56,19 @@ app.include_router(ai_router, prefix=settings.API_V1_STR, tags=["AI Suggestions"
 app.include_router(sites_router, prefix=settings.API_V1_STR, tags=["Site Mode Crawling"])
 app.include_router(proxies_router, prefix=settings.API_V1_STR, tags=["Stealth & Proxy Pool"])
 
+# Alias /api/v1 prefix for direct proxying and Vercel routing compatibility
+if settings.API_V1_STR != "/api/v1":
+    app.include_router(check_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(detect_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(preview_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(jobs_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(recipes_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(public_data_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(ai_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(sites_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(proxies_router, prefix="/api/v1", include_in_schema=False)
+
+
 
 @app.get("/", tags=["Root"])
 async def root():
